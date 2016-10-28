@@ -1,0 +1,37 @@
+The MMU interface is a bit terrible - it keeps with the general theme of my... well, everything.  Despite that, here is a quick synopsis of how it functions:
+
+	Generally speaking, *nothing* should interact with the mmu interface and should instead use the functionality provided by the vmm (virtual memory manager) 
+which handles allocation/deallocation of virtual addresses.  If you are using this interface and are not the vmm, may gawd have mercy on your soul.
+	
+	ALL FUNCTIONS RETURN ZERO ON SUCCESS, MMU_ERR_XXX ON ERROR
+	
+	mmu_enable()
+		self documenting?
+	
+	mmu_disable()
+		also self documenting?
+		
+	mmu_set_kern_pg_dir() / mmu_set_user_pg_dir()
+		sets the address of the kernel/user page directory for use by the mmu
+	
+	mmu_set_pg_dirs()
+		sets the address of both kernel/user page directories for use by the mmu
+
+	mmu_set_vm_split()
+		sets the address split to defined value
+	
+	mmu_map_xxx()
+		maps virtual to physical addresses based on the entry type and sets their specific access types and flags
+		there are two versions of this function that essentially do the same thing but vary by page directory -
+		
+		mmu_map_curr() uses the two page directories previously set by the functions mmu_set_kern/user/pg_dir/s();
+		mmu_map_new() uses specified page directory to map addresses in
+		
+		mmu_map_curr() MUST be used if modifying the current state (I.E., if user process requested a file be memory mapped somewhere in their address space)
+		mmu_map_new() MUST be used if mapping a new page directory entirely (say, on a new user process?)
+		
+		mmu_map_curr() REQUIRES prior successful call to mmu_set_kern/user_pg_dir() or mmu_set_pg_dirs()
+
+	More likely than not, the flow for initialization should be as follows: 
+		mmu_set_vm_split() -> mmu_map_new() -> mmu_set_pg_dirs() (or individual functions) ->mmu_enable()
+		

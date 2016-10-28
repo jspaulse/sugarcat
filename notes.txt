@@ -1,0 +1,11 @@
+Configuration
+You configure the processor for low interrupt latency mode by use of the system control coprocessor. To ensure that a change between normal and low interrupt latency configurations is synchronized correctly, you must use software systems that only change the configuration while interrupts are disabled.
+Exception processing enhancements
+The ARMv6 architecture contains several enhancements to exception processing, to reduce interrupt handler entry and exit time:
+SRS
+Save return state to a specified stack frame.
+RFE
+Return from exception.
+CPS
+Directly modify the CPSR.
+http://www.heyrick.co.uk/armwiki/The_Status_register <- all CPSR/SPSR, fun times!
