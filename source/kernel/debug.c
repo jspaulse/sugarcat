@@ -21,7 +21,8 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <mm/mem.h>
-#define UART0_BASE_ADDRESS		0x20201000
+
+#define UART0_BASE_ADDRESS		0x10009000
 //#define UART0_BASE_ADDRESS		0x101f1000
 #define UART0_FR				0x18
 
@@ -29,11 +30,14 @@ extern char *itox(unsigned int, char *);
 extern char *itoa(int, char *);
 
 static void uart_putc(unsigned char byte) {
+	
+	/* not required qemu
 	while(true) {
 		if (!(memr(UART0_BASE_ADDRESS + UART0_FR) & (1 << 5))) {
 			break;
 		}
 	}
+	*/
 	
 	memw(UART0_BASE_ADDRESS, (unsigned int)byte);
 }
@@ -41,7 +45,7 @@ static void uart_putc(unsigned char byte) {
 static void uart_puts(char *buf) {
 	int i = 0;
 	
-	dsb();
+	//dsb(); not required atm, qemu
 	
 	while (buf[i] != '\0') {
 		uart_putc(buf[i++]);
@@ -77,6 +81,7 @@ void d_printf(const char *format, ...) {
 					uart_putc(format[index]);
 					break;
 			}
+			
 			index++;
 		}
 	}

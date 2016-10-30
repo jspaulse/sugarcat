@@ -18,12 +18,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-//#include <kmap.h>
-.global reset
-
+ 
 .extern svc_stack
-.extern early_init
+//.extern early_init
 
+.global reset
 reset:
 	/* move into svc mode, set sp */
 	msr cpsr_c, #0xD3 /* (MODE_SVC | IRQ_DIS | FIQ_DIS) */
@@ -39,6 +38,7 @@ reset:
     hang:
 		b hang
 
+/*
 .global set_sp
 set_sp:
 	mov sp, r0
@@ -53,3 +53,4 @@ get_sp:
 add_sp:
 	add sp, sp, r0
 	mov pc, lr
+*/

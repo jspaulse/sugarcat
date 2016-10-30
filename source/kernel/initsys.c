@@ -70,9 +70,17 @@ void initsys(struct mm_region k_phy, struct mm_region phy_kpgd, struct mm_region
 static int setup_mmu(addr_t kpgd, addr_t upgd) {
 	int ret = 0;
 	
+	if (kpgd == 0) {
+		
+	} else if (upgd == 0) {
+		
+	}
+	/*
 	if (mmu_set_vm_map(kmap_mvm, true) == 0) {
 		ret = mmu_set_pg_dirs(kpgd, upgd, true);
 	}
+	
+	*/
 	
 	return ret;
 }

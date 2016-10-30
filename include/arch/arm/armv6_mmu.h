@@ -41,6 +41,7 @@ inline unsigned int armv6_pg_acc_to_arm(pg_acc_t pg_acc) {
 	
 	return ret;
 }
+
 inline unsigned int armv6_mmu_vm_map_to_arm(mmu_vm_map mvm) {
 	int ret = 0;
 	

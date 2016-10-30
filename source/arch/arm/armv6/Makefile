@@ -6,20 +6,15 @@ CC			= arm-none-eabi-gcc
 AS			= arm-none-eabi-as
 
 # why not?
-SOURCE			= $(ARCH)/
-SRC_FILES		= $(notdir $(wildcard $(SOURCE)*))
+SRC_FILES		= $(notdir $(wildcard *.c)) $(notdir $(wildcard *.s))
 
 SUB_FILES		= $(patsubst %.s, %.o, $(SRC_FILES))
-R_OBJ			= $(addprefix $(BUILD), $(patsubst %.c, %.o, $(SUB_FILES)))
-OBJ				= $(patsubst %.S, %.o, $(R_OBJ))
+OBJ				= $(addprefix $(BUILD), $(patsubst %.c, %.o, $(SUB_FILES)))
 all: $(OBJ)
 
-$(BUILD)%.o : $(SOURCE)%.c
+$(BUILD)%.o : %.c
 	$(GNU_TOOLS)-gcc $(CFLAGS) -c $< -o $@
 
-$(BUILD)%.o : $(SOURCE)%.s
+$(BUILD)%.o : %.s
 	$(GNU_TOOLS)-as $(AFLAGS) -c $< -o $@
 
-$(BUILD)%.o : $(SOURCE)%.S
-	$(GNU_TOOLS)-as $(AFLAGS) -c $< -o $@
-	#$(AS) $(AFLAGS) -c $< -o $@
