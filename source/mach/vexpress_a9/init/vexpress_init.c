@@ -30,7 +30,7 @@
 #include <errno.h>
 #include <stdbool.h>
 
-#define MB				0x100000
+#define MB 				0x100000
 #define MMU_PTE_SIZE	0x200000
 #define MASK_MB 		0xFFFFF
 #define DIV_MULT_MB 	20
@@ -57,7 +57,7 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
 	struct mm_reg	initrd_reg	= {0, 0};
 	struct mm_reg	mem_reg 	= {0, 0};
 	bool			initrd_ex	= false;
-	int 			err 		= 0;
+	int				err			=0;
 	
 	/*
 	struct mm_reg	*reserved_regs[] = {
