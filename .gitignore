@@ -3,3 +3,6 @@
 *.o
 *.bin
 *.elf
+*.list
+*.map
+*.rf
