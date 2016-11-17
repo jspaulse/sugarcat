@@ -55,7 +55,7 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
 	struct mm_reg	mmu_pte_reg	= {(init_kvm_to_phy((addr_t)&k_end) & ~MASK_MB) + MB, MMU_PTE_SIZE};
 	//struct mm_reg	mmu_pgd_reg	= {(addr_t)&k_pgd, 0x4000};
 	struct mm_reg	initrd_reg	= {0, 0};
-	struct mm_reg 	mem_reg 	= {0, 0};
+	struct mm_reg	mem_reg		= {0, 0};
 	bool			initrd_ex	= false;
 	int				err			= 0;
 	
@@ -147,24 +147,22 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
  * @return errno
  **/
 static int init_get_mem(addr_t atag_base, struct mm_reg *reg) {
-	struct atag 	*sch 	= NULL;
-	struct mm_reg 	fnd		= {0, 0};
-	int 			ret 	= ERR_SUCC;
+	struct atag 	*sch	= NULL;
+	struct mm_reg	fnd		= {0, 0};
+	int				ret		= ERR_SUCC;
 
 	if (reg != NULL) {
 		sch = get_tag(atag_base, ATAG_MEM);
 		
 		if (sch != NULL) {
-			fnd.base 	= sch->u.mem.start;
+			fnd.base	= sch->u.mem.start;
 			fnd.size	= sch->u.mem.sz;
 			
 			while ((sch = get_next_tag(sch, ATAG_MEM)) != NULL) {
-				if ((fnd.base + fnd.size) == sch->u.mem.start) {
-					/* regions are continuous */
+				if ((fnd.base + fnd.size) == sch->u.mem.start) { /* regions are continuous */
 					fnd.size += sch->u.mem.sz;
-				} else if (fnd.size < sch->u.mem.sz) {
-					/* larger region */
-					fnd.base 	= sch->u.mem.start;
+				} else if (fnd.size < sch->u.mem.sz) { /* larger region */
+					fnd.base	= sch->u.mem.start;
 					fnd.size	= sch->u.mem.sz;
 				}
 			}
@@ -191,15 +189,15 @@ static int init_get_mem(addr_t atag_base, struct mm_reg *reg) {
  * @return errno
  **/
 static int init_get_initrd(addr_t atag_base, struct mm_reg *reg) {
-	struct atag 	*sch	= NULL;
+	struct atag		*sch	= NULL;
 	int				ret		= 0;
 	
 	if (reg != NULL) {
 		sch = get_tag(atag_base, ATAG_INITRD2);
 		
 		if (sch != NULL) {
-			reg->base	= sch->u.initrd.start;
-			reg->size	= sch->u.initrd.sz;
+			reg->base = sch->u.initrd.start;
+			reg->size = sch->u.initrd.sz;
 		} else {
 			ret = ERR_NOTFND;
 		}
