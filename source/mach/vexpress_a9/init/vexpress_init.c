@@ -36,7 +36,7 @@
 #define DIV_MULT_MB		20
 
 /* used for kinit_warn/info/print */
-static char	buf[512];
+static char buf[512];
 
 /* helper functions */
 static int init_get_mem(addr_t atag_base, struct mm_reg *reg);
@@ -57,7 +57,7 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
 	struct mm_reg	initrd_reg	= {0, 0};
 	struct mm_reg 	mem_reg 	= {0, 0};
 	bool			initrd_ex	= false;
-	int 			err			= 0;
+	int				err			= 0;
 	
 	/*
 	struct mm_reg	*reserved_regs[] = {
@@ -93,7 +93,7 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
 	/* sanity check on reservations */
 	if (!is_within_region(&mem_reg, &kern_reg)) {
 		kinit_warn(buf, "is_within_region() reports kernel region is not in largest found memory region; \
-				k_base: 0x%x, k_size: %i, m_base: 0x%x, m_size: %i.", kern_reg.base, kern_reg.size, mem_reg.base, mem_reg.size);
+			k_base: 0x%x, k_size: %i, m_base: 0x%x, m_size: %i.", kern_reg.base, kern_reg.size, mem_reg.base, mem_reg.size);
 	} 
 	
 	/* check if mmu pte is in sane region */
