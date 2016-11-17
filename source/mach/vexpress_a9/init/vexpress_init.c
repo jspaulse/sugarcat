@@ -20,7 +20,7 @@
  */
 
 #include <arch/arm/armv7/armv7_syscntl.h>
-#include <arch/arm/cpu/arm_cortex_a9.h>
+#include <arch/arm/cpu/cortex_a9.h>
 #include <mach/vexpress_a9/vexpress_a9.h>
 #include <mach/mach_init.h>
 #include <init/kinit.h>
