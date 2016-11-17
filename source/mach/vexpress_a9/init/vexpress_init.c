@@ -32,8 +32,8 @@
 
 #define MB				0x100000
 #define MMU_PTE_SIZE	0x200000
-#define MASK_MB			0xFFFFF
-#define DIV_MULT_MB		20
+#define MASK_MB 		0xFFFFF
+#define DIV_MULT_MB 	20
 
 /* used for kinit_warn/info/print */
 static char buf[512];
@@ -55,9 +55,9 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
 	struct mm_reg	mmu_pte_reg	= {(init_kvm_to_phy((addr_t)&k_end) & ~MASK_MB) + MB, MMU_PTE_SIZE};
 	//struct mm_reg	mmu_pgd_reg	= {(addr_t)&k_pgd, 0x4000};
 	struct mm_reg	initrd_reg	= {0, 0};
-	struct mm_reg	mem_reg		= {0, 0};
+	struct mm_reg	mem_reg 	= {0, 0};
 	bool			initrd_ex	= false;
-	int				err			= 0;
+	int 			err 		= 0;
 	
 	/*
 	struct mm_reg	*reserved_regs[] = {
@@ -148,8 +148,8 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
  **/
 static int init_get_mem(addr_t atag_base, struct mm_reg *reg) {
 	struct atag 	*sch	= NULL;
-	struct mm_reg	fnd		= {0, 0};
-	int				ret		= ERR_SUCC;
+	struct mm_reg	fnd 	= {0, 0};
+	int 			ret 	= ERR_SUCC;
 
 	if (reg != NULL) {
 		sch = get_tag(atag_base, ATAG_MEM);
@@ -189,8 +189,8 @@ static int init_get_mem(addr_t atag_base, struct mm_reg *reg) {
  * @return errno
  **/
 static int init_get_initrd(addr_t atag_base, struct mm_reg *reg) {
-	struct atag		*sch	= NULL;
-	int				ret		= 0;
+	struct atag 	*sch	= NULL;
+	int 			ret 	= 0;
 	
 	if (reg != NULL) {
 		sch = get_tag(atag_base, ATAG_INITRD2);
