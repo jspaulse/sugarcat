@@ -1,0 +1,78 @@
+TODO
+	Move arch/arm includes into rational locations
+	modify Makefile builds based on additional CPU
+	
+Look at enabling all of the necessary caches and all that jazz.
+
+PL011 UART (serial communication)
+PL031 Real Time Clock
+PL050 PS2 Mouse & Keyboard Interface	// http://wiki.osdev.org/PL050_PS/2_Controller
+PL110/PL111 Color LCD/HDLCD (software rendering, no GPU)
+	https://io.netgarage.org/arm/tmp/timpwn_firstpixels.c
+	http://wiki.osdev.org/ARM_Integrator-CP_PL110_Dirty
+	
+	http://forum.osdev.org/viewtopic.php?f=1&t=23990, 
+	http://stackoverflow.com/questions/10070192/arm-programming-pl111-controller-and-printing-characters-on-the-lcd
+	https://github.com/CyberGrandChallenge/linux-source-3.13.11-ckt32-cgc/blob/master/drivers/video/amba-clcd.c
+	
+PL180 MultiMedia Card Interface (MMCI)
+
+Most directories need fixed up Makefiles
+	Use vexpress/Makefile for main folder makefiles
+	Use vexpress/init/ for sub folder makefiles
+
+kinit/kinit_warn/panic
+	Garbage functions, need better.
+	panic should probably dump more
+
+Gotta get hacky with the ttbr1 address if you want it to work properly
+	Must be aligned at least 0x4000
+		So, if you want to have a 0x2000 sized ttbr1:
+			It must be addressed so that (PG_DIR - 0x2000) is at least 0x4000
+				Mask: ~0x3FFF
+		Therefore, it might be beneficial to keep the pages (kp_base + 0x6000)
+		and set the ttbr1 base to (kp_base + 0x4000)
+
+Fix-up atags for strtok like usage
+Fixup domain access
+Use Small Pages when using l1/l2 on kernel.
+
+mm (Memory Manager)
+	Oversees PMM, VMM and heap functions (kmalloc, kfree)
+pmm (Physical Memory Manager):
+	Handles allocation (and book keeping) of physical pages
+		No Access outside of VMM
+vmm (Virtual Memory Manager):
+	Handles allocation of pages & iomapping
+		(Probably no access outside of indirect access via mm)
+		
+Flow:
+	vexpress_init
+		1:1 map of phy mem in user table (1MB section)
+		map kernel phy region to kernel virtual region
+		branch into kernel init (pass kernel phy info, not ss though)
+		config base will need to evolve to whatever in high mem
+			or, make sure it gets mapped and phy_to_virt() that shiz.
+		pass kernel table too?
+		fix stack higher
+		
+	kernel_init
+		require 1:1 map of phy mem in lower table && kmphy->kmvirt
+		
+		init pmm
+			gets memory region - start & size
+			mark book keeping regions used
+			mark kernel regions used
+		init mmu
+			in our case, requires 2MB continuous (or, 512 pages)
+			map 2MB continuous in mmu
+			do actual kernel mappings
+		init vmm
+			whatever that'll involve
+		init cpu (for reals)
+			allocate pages for various stacks
+		init secondary cpu's
+			allocate pages for various stacks, set mmu ttb1 to kern ttb1
+			
+			
+			

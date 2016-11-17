@@ -1,0 +1,11 @@
+#ifndef CORTEX_A9_H
+#define CORTEX_A9_H
+
+/* private memory region offsets */
+#define CORTEX_A9_SCU_OFFSET			0x0000
+#define CORTEX_A9_GICC_OFFSET			0x0100
+#define CORTEX_A9_GLOBAL_TIMER_OFFSET	0x0200
+#define CORTEX_A9_PRIVATE_TIMER_OFFSET	0x0600
+#define CORTEX_A9_GICD_OFFSET			0x1000
+
+#endif

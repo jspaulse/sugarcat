@@ -18,20 +18,17 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-.extern armv7_init
-.extern sys_stack	/* kernel.ld */
+.extern vexpress_boot_init	/* vexpress_boot_init.c */
+.extern kern_stack			/* kernel.ld */
 
-.global _armv7_boot
-_armv7_boot:
-	/* move into system mode */
-	msr cpsr_c, #0x1F
-	
-	/* set the stack pointer */
-	ldr sp,	=sys_stack
+.global _vexpress_boot
+_vexpress_boot:
+	ldr sp, =kern_stack
 	
 	/* branch into C, init */
-	bl armv7_init
+	bl vexpress_boot_init
 
-/* hang if we ever reach here */
+/* hang if we ever reach here (we won't) */
 hang:
 	b hang
+

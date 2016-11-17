@@ -11,8 +11,9 @@ OBJ				= $(addprefix $(BUILD), $(patsubst %.c, %.o, $(SUB_FILES)))
 all: $(OBJ)
 
 $(BUILD)%.o : %.c
-	@echo "Build path: $(BUILD)"
-	$(GNU_TOOLS)-gcc $(CFLAGS) -c $< -o $@
+	@echo "[GCC]		$<"
+	@$(GNU_TOOLS)-gcc $(CFLAGS) -c $< -o $@
 
 $(BUILD)%.o : %.s
-	$(GNU_TOOLS)-as $(AFLAGS) -c $< -o $@ 
+	@echo "[ASM]		$<"
+	@$(GNU_TOOLS)-as $(AFLAGS) $< -o $@

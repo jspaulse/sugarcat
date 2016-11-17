@@ -1,6 +1,3 @@
-Configuration
-You configure the processor for low interrupt latency mode by use of the system control coprocessor. To ensure that a change between normal and low interrupt latency configurations is synchronized correctly, you must use software systems that only change the configuration while interrupts are disabled.
-Exception processing enhancements
 The ARMv6 architecture contains several enhancements to exception processing, to reduce interrupt handler entry and exit time:
 SRS
 Save return state to a specified stack frame.
@@ -9,6 +6,23 @@ Return from exception.
 CPS
 Directly modify the CPSR.
 http://www.heyrick.co.uk/armwiki/The_Status_register <- all CPSR/SPSR, fun times!
+
+
+TODO:
+	Fixup domain accesses
+
+Things that need to be set prior to MMU
+Domain (Read below)
+
+Domain:
+	DACR, Domain Access Control Register, VMSA
+	MRC p15, 0, <Rt>, c3, c0, 0 ; Read DACR into Rt
+	MCR p15, 0, <Rt>, c3, c0, 0 ; Write Rt to DACR
+	
+	Initially, write 0b11 into DACR (Manager, no check permissions)
+		Later, after it's working, set 0b01 (Client, check permissions)
+	
+	Leave all pages in domain 0 (by not writing them).
 
 ===== CPSR =====
 CPSR_fsxc
@@ -23,6 +37,92 @@ MSR     CPSR_f, xxxx      sets the flag bits
 MSR     CPSR_cxsf, xxxx   sets everything
 
 === MMU ===
+We are using short descript. translation (two levels)
+B3.5 short descriptor translation table format
+B3-1325 has a general diagram of two levels
+B3.5.1 has translation table format descriptors
+B3.5.4 describes the split
+B3-1337 has translation for Page Table/Page Table Directory blah
+
+Address translation:
+	First table:
+		Indexed by VA [31-N:20] (for ttb0)
+		Indexed by VA [31:20] (for ttb1)
+	Second table:
+		Indexed by VA [19:12]
+	
+	
+DON'T TRUST MY SMALL SECTION BITS ATM
+
+TTBCR:
+[2:0]	N bits
+MRC p15, 0, <Rt>, c2, c0, 2 ; Read TTBCR into Rt
+MCR p15, 0, <Rt>, c2, c0, 2 ; Write RT to TTBCR
+
+TTB1 address (in register):
+	MRC p15, 0, <Rt>, c2, c0, 1 ; Read 32-bit TTBR1 into Rt
+	MCR p15, 0, <Rt>, c2, c0, 1 ; Write Rt to 32-bit TTBR1
+	
+	Must be aligned 16KB
+	[31:14]		table address
+	
+TTB0 address (in register):
+	MRC p15, 0, <Rt>, c2, c0, 0 ; Read 32-bit TTBR0 into Rt
+	MCR p15, 0, <Rt>, c2, c0, 0 ; Write Rt to 32-bit TTBR0
+
+	In these assignments, x is (14-(TTBCR.N)). (which is the memory split)
+	Must be aligned 2^(14-n)
+	[31:(14-n)]	-	address
+	
+Entries:
+	AP bits:
+	0x00	No Access
+	0x01	RW Kernel, No User
+	0x02	RW Kernel, RO User
+	0x03	RW Kernel, RW User
+	
+	Page Table, First Level:
+		[Entry]: [1:0]
+		
+		Invalid: 0x0
+		Section: 0x2
+			[31:20]	Section Base Address, PA[31:20]
+			[19]	NS		/* disregard */
+			[17]	nG		
+			[16]	S		
+			[15]	AP[2]	/* disregard */
+			[14:12] TEX
+			[11:10]	AP[1:0]
+			[8:5]	Domain
+			[4]		XN		Execute Never
+			[3]		C
+			[2]		B
+			
+		Page Directory(?): 0x1
+			[31:10] Page table base address
+			[8:5]	Domain	/* disregard	*/
+			[3]		NS		/* disregard	*/
+			[2]		PXN		/* disregard	*/
+			
+	Page Table, Second Level:
+		Invalid: 0x0
+		Small Page: 0x2
+		[31:12]		Page Base Address, PA[31:12]
+		[11]		nG
+		[10]		S
+		[9]			AP[2]	/* disregard */
+		[8:6]		TEX
+		[5:4]		AP[1:0]
+		[3]			C
+		[2]			B
+		[0]			XN
+		
+	Page Table - [31:10], maps a 1MB range to a second level table
+		Use small pages (requires 1KB?)
+	Section - maps a whole 1M range
+	
+	
+
 Enabling MMU SCTLR, System Control Register (B4.1.130 armv7-a ARM)
 B4.1.130 SCTLR, System Control Register, VMSA
 
@@ -116,7 +216,7 @@ The abort was caused by the instruction at lr - 4
 Read fault type:
 volatile unsigned int faulttype;
 __asm volatile ("mrc p15, 0, %[ft], c5, c0, 0\n\t" : [ft] "=r" (faulttype));
-faulttype &amp;= 0xf;
+faulttype &= 0xf;
 
 
 =========== Undefined Instruction ===========

@@ -7,6 +7,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <sys/time.h>
+
 struct mm_entry {
 	unsigned int 		status;
 	size_t 				size;
@@ -16,9 +17,9 @@ struct mm_entry {
 
 #define STATUS_ALLOCATED	0xFFFFFFFF
 #define STATUS_FREE			0xAAAAAAAA
-#define PAGE_SIZE 4096
-#define MIN_ALLOC 16
-#define MAGIC	0xAABBCCDD
+#define PAGE_SIZE 			4096
+#define MIN_ALLOC 			16
+#define MAGIC				0xAABBCCDD
 
 void *heap_start = NULL;
 
@@ -342,14 +343,6 @@ static unsigned int add_offset(void *ptr, unsigned int offset) {
 
 static unsigned int sub_offset(void *ptr, unsigned int offset) {
 	return ((unsigned int)ptr - offset);
-}
-
-static unsigned int lowest_bit(unsigned int value) {
-	unsigned int ret = 0;
-	
-	ret = value & (int)-value;
-	
-	return ret;
 }
 
 static bool is_power_of_two(unsigned int x) {
