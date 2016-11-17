@@ -1,0 +1,38 @@
+For testing:
+	Assume that all interrupts default to N-N; whichever processor gets there first gets it, all other spurious?
+
+Learn about interrupt priorities (because I don't want to deal with them at the moment)
+
+Do we want some kind of registration of kernel functions for specific arch./mach.?
+	Probably not.
+
+Bringing the other CPU's up?
+A processor reads the ICCIAR and obtains the interrupt ID 1023, indicating a spurious interrupt.
+Configuration Base Address Register:
+	MRC p15,4,<Rd>,c15,c0,0; Read Configuration Base Address Register
+	MCR p15,4,<Rd>,c15,c0,0; Write Configuration Base Address Register
+	
+Offsets from that base address:
+	http://infocenter.arm.com/help/topic/com.arm.doc.100486_0401_10_en/ada1443777297059.html
+
+http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.100486_0401_10_en/ada1443777304248.html
+http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0388e/index.html
+
+
+Create a machine specific dir
+	mach/xxx/layout.c
+		Incorporate any necessary details (I.E., vector table)
+	
+IVT:
+	arch/armv7/ivt/ivt.c
+		install feature (lawl)
+	arch/armv7/ivt/ivt.s
+		asm level handlers
+			parse out necessary deets
+				branch into generic kernel handlers
+				fix up necessary
+				exit
+
+
+Flow ->
+	

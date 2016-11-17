@@ -1,0 +1,32 @@
+Exceptions (Interrupts):
+	Vector Table Setup
+		SCTLR.V	== 0 (check if reset value)
+		VBAR holds base address
+	Vector Table Layout and Mode
+		Offset	Type					Mode
+		0x00	Reset					Supervisor	
+		0x04	Undefined Instruction	Undefined
+		0x08	Supervisor Call (SVC)	Supervisor
+		0x0C	Prefetch Abort			Abort
+		0x10	Data Abort				Abort
+		0x14	Reserved				N/A
+		0x18	IRQ						IRQ
+		0x1C	FIQ						FIQ
+	Undefined Instruction
+		Undefined Instruction in PC
+		Caused by:
+			Coprocessor instruction (whether restricted access or non-existant)
+			Trapped FP exception on FP instruction
+			Illegal/Undefined Instruction
+		Return from:
+			lr_und = pc + 4
+			Return Instruction
+				movs pc, lr
+			
+			lr_und = PC + 4
+			
+			Return instruction MOVS PC, lr
+			LR = PC - 4
+			
+
+	

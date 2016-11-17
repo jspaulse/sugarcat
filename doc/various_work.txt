@@ -1,0 +1,531 @@
+/* Copyright (C) 2016 Jacob Paulsen <jspaulse@ius.edu>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+#include <arch/arm/arm_cortex_a9.h>
+#include <arch/arm/armv7_mmu.h>
+#include <arch/arm/armv7.h>
+#include <mm/mem.h>
+#include <types.h>
+#include <util/atag.h>
+#include <util/bits.h>
+#include <stddef.h>
+
+#define PG_TB_L1_SZ		0x2000
+#define PG_TB_L2_SZ		0x200000
+#define DIV_MULT_MB		20
+#define SECT_MASK		0xFFFFF
+#define PG_ENTRY_CNT	2048
+
+/* all tmp (i think) */
+extern void d_printf(const char *format, ...);
+extern void vexpress_test(void);
+extern void irq_hand(); /* tmp */
+extern void undef_inst_hand(); /* tmp */
+extern void dat_abt_hand(); /* tmp */
+extern void pref_abt_hand(); /* tmp */
+extern void _vexpress_boot(void);	/* tmp (i think) */
+extern void _vexpress_secondary(void);
+static unsigned int ivt[16] __attribute__((aligned(128))); /* tmp */
+void install_ivt(void); /* tmp */
+
+/* kernel.ld */
+extern addr_t kp_start, kv_start;
+extern addr_t kern_stack;
+extern addr_t ss_start, ss_end;
+extern addr_t ss_bss_start, ss_bss_end;
+extern addr_t k_start, k_end;
+extern addr_t k_pg_tb_l1, u_pg_tb_l1;
+
+static void init_user_pg_dir(addr_t u_pg_dir);
+static void init_kern_pg_dir(addr_t k_pg_dir, addr_t k_phy_start, size_t k_sz);
+static void init_pg_dir_entry(addr_t *pg_dir, addr_t phy_addr, addr_t virt_addr);
+static void init_enable_mmu(void);
+
+static addr_t phy_to_kvm(addr_t address);
+static addr_t kvm_to_phy(addr_t address);
+
+/**
+ * vexpress_init
+ * 
+ * initial C entry from vexpress_boot.s, initializes
+ * arch. specific things before branching into the main
+ * kernel.
+ *
+ **/
+void vexpress_init(int r0, int mach, unsigned int atags) {
+	addr_t k_phy_pg_dir = kvm_to_phy((addr_t)&k_pg_tb_l1);
+	addr_t u_phy_pg_dir = (addr_t)&u_pg_tb_l1;
+	size_t bss_sz 		= (size_t)&ss_bss_end - (size_t)&ss_bss_start;
+	size_t k_sz			= (size_t)&k_end - (size_t)&k_start;
+	size_t ss_sz		= (size_t)&ss_end - (size_t)&ss_start;
+	int err 			= 0;
+	struct atag tag;
+	
+	memset(&ss_bss_start, 0, bss_sz);
+	
+	/* tmp */
+	install_ivt();
+	
+	/* debug */
+	d_printf("===== vexpress_init =====\n");
+	d_printf("r0: 0x%x\n", r0);
+	d_printf("mach: 0x%x\n", mach);
+	d_printf("atags: 0x%x\n\n", atags);
+	
+	/* kernel things */
+	d_printf("sys_stack: 0x%x\n", &kern_stack);
+	d_printf("kp_start: 0x%x\n", &kp_start);
+	d_printf("kv_start: 0x%x\n", &kv_start);
+	d_printf("ss: 0x%x - 0x%x, size: %i, %i pages\n", &ss_start, &ss_end, ss_sz, ss_sz / 0x1000);
+	d_printf("bss: 0x%x - 0x%x, size: %i\n", &ss_bss_start, &ss_bss_end, bss_sz);
+	d_printf("kern: 0x%x - 0x%x, size: %i, %i pages\n", &k_start, &k_end, k_sz, k_sz / 0x1000);
+	d_printf("total: %i, %i pages\n", k_sz + ss_sz, (k_sz + ss_sz) / 0x1000);
+	
+	/* memory */
+	err = get_tag(atags, ATAG_MEM, &tag);
+	
+	if (err != 0) {
+		d_printf("[ERROR] find_tag() returned %i!\n\n", err);
+	} else {
+		d_printf("memory: %i MiB\n\n", tag.u.mem.sz >> 20);
+	}
+
+	init_user_pg_dir(u_phy_pg_dir);
+	init_kern_pg_dir(k_phy_pg_dir, kvm_to_phy((addr_t)&k_start), k_sz);
+	
+	d_printf("about to enable mmu!\n");
+	init_enable_mmu();
+	
+	d_printf("mmu should be enabled now, hopefully nobody died.\n");
+	
+	/* jump stack */
+	//asm volatile("add sp, sp, %0" : : "r" (&kv_start));
+	vexpress_test();
+	while(1);
+}
+
+
+/**
+ * init_enable_mmu
+ * 
+ * initializes and enables the mmu
+ * 
+ * @u_pg_dir	address of the user(ttb0) page directory
+ * @k_pg_dir	(physical) address of the kernel(ttb1) page directory
+ **/
+static void init_enable_mmu(void) {
+	unsigned int reg = 0;
+	
+	/* set the mmu split */
+	armv7_set_ttbcr(ARMV7_2G_2G_SPLIT);
+	
+	/* set domains */
+	armv7_set_domain(0, ARMV7_DACR_MNGR);
+	
+	/* set the control bits and enable mmu */
+	reg = armv7_get_sctlr();
+	reg |= ARMV7_SCTLR_AFE | ARMV7_SCTLR_MMU_ENB;
+	armv7_set_sctlr(reg);
+	
+	/* invalidate */
+	armv7_invalidate_unified_tlb();
+}
+	
+
+/**
+ * init_user_pg_dir
+ * 
+ * initializes the user (TTB0) page dir as a 1:1 mapping of
+ * all physical addresses from [0, 2GiB]
+ * 
+ * @u_pg_dir	physical address of the user page dir
+ **/
+static void init_user_pg_dir(addr_t u_pg_dir) {
+	addr_t *pg_dir = (addr_t *)u_pg_dir;
+
+	
+	/* map all in 2GiB range */
+	for (int i = 0; i < PG_ENTRY_CNT; i++) {
+		addr_t pv_addr = (i << DIV_MULT_MB);
+		
+		/* map 1:1 */
+		init_pg_dir_entry(pg_dir, pv_addr, pv_addr);
+	}
+	
+	armv7_set_ttbr0(u_pg_dir);
+}
+
+/**
+ * init_kern_pg_dir
+ * 
+ * initializes the kernel (TTB1) page dir as k_phy_mem -> k_virt_mem
+ * 
+ * @k_pg_dir	physical address of the kernel page dir
+ * @k_phy_start	physical address of the start of the kernel
+ * @k_sz		size of the kernel
+ **/
+static void init_kern_pg_dir(addr_t k_pg_dir, addr_t k_phy_start, size_t k_sz) {
+	addr_t *pg_dir 	= (addr_t *)k_pg_dir;
+	int cnt 		= (k_sz >> DIV_MULT_MB) + 1;	/* number of 1MiB sections to map */
+	
+	/* clean kern_pg_dir */
+	memset(pg_dir, 0, PG_TB_L1_SZ);
+	
+	/* map all MiB sections of kernel */
+	for (int i = 0; i < cnt; i++) {
+		addr_t p_addr = k_phy_start + (i << DIV_MULT_MB);
+		
+		/* map kernel sections in high mem */
+		init_pg_dir_entry(pg_dir, p_addr, phy_to_kvm(p_addr));
+	}
+	
+	armv7_set_ttbr1(k_pg_dir);
+}
+
+/**
+ * init_pg_dir_entry
+ * 
+ * creates a section entry in the specified pg_dir for the specified physical
+ * and virtual addresses
+ * 
+ * @pg_dir		pointer to page directory
+ * @phy_addr	physical address being mapped to virtual address
+ * @virt_addr	virtual address being mapped to physical address
+ **/
+static void init_pg_dir_entry(addr_t *pg_dir, addr_t phy_addr, addr_t virt_addr) {
+	addr_t entry 	= (phy_addr & ~SECT_MASK) | (ARMV7_AP_KRW_URW << 10) | ARMV7_L1_SECT;
+	addr_t v_start 	= (addr_t)&kv_start;
+	int index		= 0;
+	
+	if (virt_addr >= v_start) {
+		index = virt_addr >> DIV_MULT_MB; /* this is right */
+		//index = (virt_addr - v_start) >> DIV_MULT_MB;
+	} else {
+		index = virt_addr >> DIV_MULT_MB;
+	}
+	
+	pg_dir[index] = entry;
+	//d_printf("Entry[%i] in table 0x%x, v: 0x%x, p: 0x%x - 0x%x\n", index, pg_dir, virt_addr, phy_addr, pg_dir[index]);
+}
+
+/**
+ * init_kern_page_tables
+ * 
+ * initializes the kernel page tables
+ * NOTE: it does not write anything to l2 kernel page tables
+ * 	this should be taken care of when adding entries
+ **/
+/*
+static void init_kern_page_tables(void) {
+	addr_t *pg_dir = NULL;
+	
+	// calculate where (in phy mem) the page tables are *
+	k_pg_l1 = kvm_to_phy((addr_t)&k_pg_tb_l1);
+	k_pg_l2 = (kvm_to_phy((addr_t)&k_end) + MB) & ~MB_MASK;
+	pg_dir	= (addr_t *)k_pg_l1;
+	
+	/ clean them 
+	memset(pg_dir, 0, PG_TB_L1_SZ);
+	memset((void *)k_pg_l2, 0, PG_TB_L2_SZ);
+	
+
+	2048 4byte entries for 2G map
+	Each page table is 1KiB large
+	 
+	for (int i = 0; i < 2048; i++) {
+		addr_t pg_tb = (k_pg_l2 + (i << 10));
+		
+		pg_dir[i] = (pg_tb & ~MB_MASK) | ARMV7_L1_PG_TB;
+	}
+}
+*/	
+	/* basically what needs to happen here is this:
+	 * set up three tables:
+	 * 
+	 * For kernel (ttb1):
+	 * l1 table is at &k_ttb_l1 (physical, kvm_to_phy((addr_t)&k_ttb_l1))
+	 * l2 tables are going to be on the next MB after the kernel (2 MB large)
+	 * map kernel physical addresses to virtual on page2page basis
+	 * 
+	 * For user (ttb0):
+	 * l1 table is at &u_ttb_l1
+	 * effectively map 1:1
+	 * 
+	 * 
+	 * move stack pointer to virtual phy_to_kvm(&sp)
+	 * do any other initializations and move into kernel_init()
+	 */
+	
+	/*
+	if (armv7_get_cpu_id() == 0) {
+		memset(&ss_bss_start, 0, bss_sz);
+		
+		d_printf("===== vexpress_init =====\n");
+		
+		find_tag(atags, ATAG_MEM, &mem);
+		
+		// boot stuff 
+		d_printf("r0: 0x%x\n", r0);
+		d_printf("mach: 0x%x\n", mach);
+		d_printf("atags: 0x%x\n\n", atags);
+		d_printf("mem: %i\n", mem.u.mem.sz >> 20);
+	
+		// our stuff
+		d_printf("sys_stack: 0x%x\n", &sys_stack);
+		d_printf("kp_start: 0x%x\n", &kp_start);
+		d_printf("kv_start: 0x%x\n", &kv_start);
+		d_printf("ss: 0x%x - 0x%x, size: %i\n", &ss_start, &ss_end, ss_sz);
+		d_printf("bss: 0x%x - 0x%x, size: %i\n", &ss_bss_start, &ss_bss_end, bss_sz);
+		d_printf("kern: 0x%x - 0x%x, size: %i\n", &k_start, &k_end, k_sz);
+		d_printf("k_ttb_l1: 0x%x\n\n", kvm_to_phy((addr_t)&k_ttb_l1));
+		d_printf("stop bitching! 0x%x\n", phy_to_kvm((addr_t)&k_ttb_l1));
+	
+
+		install_ivt();
+		
+		d_printf("Going to be doing some crazy shit now, if you'll hold on...\n\n");
+		
+		// enable scu 
+		d_printf("enable scu: ");
+		memw(scu_base, memr(scu_base) | 0x1);
+		d_printf("0x%x\n", memr(scu_base));
+		
+		d_printf("secure_scu_invalidate\n");
+		memw(scu_base + 0xC, 0xFFFF);	// invalidate them all 
+		
+		d_printf("join_smp | enable maint: ");
+		unsigned int reg = armv7_get_aux_cntl();
+		
+		armv7_set_aux_cntl(reg | (1 | 1 << 6));
+		d_printf("0x%x\n", armv7_get_aux_cntl());
+		
+		d_printf("enable gicd: ");
+		memw(gicd_base, 0x3);
+		d_printf("0x%x\n", memr(gicd_base));
+		
+		d_printf("enable gicc: ");
+		memw(gicc_base, 0x3);
+		d_printf("0x%x\n", memr(gicc_base));
+		
+		d_printf("set priority: ");
+		memw(gicc_base + 0x4, 0xFF);
+		d_printf("0x%x\n", memr(gicc_base + 0x4));
+		
+		d_printf("going to cause undefined exception\n");
+		asm volatile("udf #0\n");
+		d_printf("finished with undefined\n");
+		
+		// write address to mem location 
+		//memw(0x10000030, (unsigned int)_vexpress_secondary);
+		
+		// send sgi 
+		//d_printf("Sending SGI!\n");
+		//memw(gicd_base + 0xF00, (1 << 24));
+		
+	}
+	
+	while (1);
+}
+*/
+
+void vexpress_secondary_init(void) {
+	unsigned int cpu = armv7_get_cpu_id();
+	unsigned int mode = 0;
+	unsigned int config_base 	= armv7_get_config_base();
+	unsigned int gicc_base 		= config_base + ARM_GICC_OFFSET;
+	unsigned int scu_base		= config_base + ARM_SCU_OFFSET;
+	
+	d_printf("CPU %i online\n", (int)cpu);
+	
+	d_printf("enable gicc: ");
+	memw(gicc_base, 0x3);
+	d_printf("0x%x\n", memr(gicc_base));
+		
+	d_printf("set priority: ");
+	memw(gicc_base + 0x4, 0xFF);
+	d_printf("0x%x\n", memr(gicc_base + 0x4));
+	
+	d_printf("secure_scu_invalidate\n");
+	memw(scu_base + 0xC, 0xFFFF);	/* invalidate them all */
+		
+	d_printf("join_smp | enable maint: ");
+	armv7_set_aux_cntl(armv7_get_aux_cntl() | (1 | 1 << 6));
+	d_printf("0x%x\n", armv7_get_aux_cntl());
+
+	//asm volatile("msr cpsr_c, %0" : : "r" (mode));
+	//asm volatile("cps #0x1F");
+	asm volatile("mrs %0, cpsr" : "=r" (mode));
+	
+	d_printf("dump mode: 0x%x\n", mode & 0x1F);
+	while(1);
+}
+	 
+
+void dump_undef_except(unsigned int addr) {
+	d_printf("[ERROR] Undefined Instruction at 0x%x\n", addr);
+}
+
+void dump_data_abt(unsigned int addr) {
+	unsigned int type = 0;
+	
+	asm volatile ("mrc p15, 0, %0, c5, c0, 0\n" : "=r" (type));
+	d_printf("[ERROR] Data Abort at 0x%x, reason: 0x%x\n", addr, type);
+}
+
+void dump_pref_abt(unsigned int addr) {
+	unsigned int type = 0;
+	
+	asm volatile("mrc p15, 0, %0, c5, c0, 1" : "=r" (type));
+	
+	d_printf("[ERROR] Prefetch Abort at 0x%x, FSR[10]: 0x%x, FSR[3:0]: 0x%x\n", addr, ((type >> 10) & 0x1), type & 0xF);
+	d_printf("register: 0x%x\n", type);
+	
+}
+
+void c_irq_hand(void) {
+	unsigned int base = armv7_get_config_base() + ARM_GICC_OFFSET;
+	unsigned int irq_ack = memr(base + 0xC) & 0x1FFF;
+	
+	d_printf("Interrupt!  ID: 0x%x\n", (irq_ack & 0x3FF));
+	
+	// write and mark it finished 
+	memw(base + 0x10, irq_ack);
+}
+
+void install_ivt(void) {
+	
+	/* build the structure (could just make this constant?) */
+	for (int i = 0; i < 8; i++) {
+		ivt[i] = ARMV7_LDR_PC | 0x18;
+	}
+	
+	ivt[8]		= (unsigned int)_vexpress_boot;
+	ivt[9]		= (unsigned int)undef_inst_hand;
+	ivt[10]		= (unsigned int)4;
+	ivt[11]		= (unsigned int)pref_abt_hand;
+	ivt[12]		= (unsigned int)dat_abt_hand;
+	ivt[13]		= (unsigned int)16;
+	ivt[14]		= (unsigned int)irq_hand;
+	ivt[15]		= (unsigned int)20;
+	
+	/* lastly, set the vector base */
+	armv7_set_ivt_base((unsigned int)&ivt);
+}
+
+
+.global join_smp
+join_smp:
+	mrc p15, 0, r4, c1, c0, 1
+	orr r4, r4, #0x40
+	mcr p15, 0, r4, c1, c0, 1
+	
+	bx lr
+
+.global enable_maint_broadcast
+enable_maint_broadcast:
+	mrc p15, 0, r4, c1, c0, 1
+	orr r4, r4, #0x1
+	mcr p15, 0, r4, c1, c0, 1
+	
+	bx lr
+	
+.global _vexpress_secondary
+_vexpress_secondary:
+	cps #0x1F
+	ldr sp, =kern_stack
+	add sp, sp, #0x1000
+	
+	//msr cpsr_c, #0x12
+	//ldr sp, =sys_stack
+	//add sp, sp, #0x3000
+	
+	//msr cpsr_c, #0x13
+	ldr sp, =kern_stack
+	add sp, sp, #0x1000
+	
+	b vexpress_secondary_init
+
+.global irq_hand
+irq_hand:
+	ldr sp, =kern_stack
+	add sp, sp, #0x2000
+	
+	push {r0-r3}
+	
+	/* branch into C handler */
+	bl c_irq_hand
+	
+	pop {r0-r3}
+	
+	/* return to before interrupt */
+	subs pc, lr, #4
+
+.global undef_inst_hand
+undef_inst_hand:
+	ldr sp, =kern_stack
+	add sp, sp, #0x3000
+	
+	push {r0-r3}
+	
+	mov r0, lr
+	sub r0, r0, #4
+	
+	/* lr - 4 holds undefined exception */
+	bl dump_undef_except
+	
+	pop {r0-r3}
+	cps #0x1B
+	
+	add lr, lr, #4
+	movs pc, r14
+
+.global dat_abt_hand
+dat_abt_hand:
+	ldr sp, =kern_stack
+	add sp, sp, #0x3000
+	
+	push {r0-r3}
+	
+	mov r0, lr
+	sub r0, r0, #8
+	
+	bl dump_data_abt
+	
+	pop {r0-r3}
+	
+	/* returns after */
+	subs pc, lr, #4
+
+.global pref_abt_hand
+pref_abt_hand:
+	ldr sp, =kern_stack
+	add sp, sp, #0x3000
+	
+	push {r0-r3}
+	
+	mov r0, lr
+	sub r0, r0, #4
+	
+	bl dump_pref_abt
+	
+	pop {r0-r3}
+	
+	/* returns after */
+	movs pc, lr

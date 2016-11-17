@@ -22,13 +22,90 @@
  */
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdarg.h>
+#include <mm/mem.h>
+#include <util/str.h>
 
-size_t strlen(const char *);
-char *strrev(char *);
-char *itox(unsigned int, char *);
-char *itoa(int, char *);
-int atoi(const char *);
-int strcmp(const char *, const char *);
+
+const char *sprintf(char *out_str, const char *format, ...) {
+	char		buf[11];
+	int			out_index 	= 0;
+	int			in_index	= 0;
+	const char	*ret		= NULL;
+	va_list		va;
+	
+	if (out_str != NULL) {
+		if (format != NULL) {
+			va_start(va, format);
+			
+			while (format[in_index] != '\0') {
+				size_t size = 0;
+				
+				switch (format[in_index]) {
+					case '%':
+						in_index++;
+						
+						if (format[in_index] == 'x' || format[in_index] == 'i') {
+							memset(buf, 0, sizeof(buf));
+							
+							if (format[in_index] == 'x') {
+								size = strlen(itox(va_arg(va, int), buf));
+							} else {
+								size = strlen(itoa(va_arg(va, int), buf));
+							}
+							
+							strncpy(&out_str[out_index], buf, size);
+							out_index += size;
+						} else if (format[in_index] == 's') {
+							char *va_str = va_arg(va, char *);
+							
+							size = strlen(va_str);
+							strncpy(&out_str[out_index], va_str, size);
+							out_index += size;
+						} else if (format[in_index] == 'c') {
+							out_str[out_index] = va_arg(va, int);
+							out_index++;
+						}
+						
+						break;
+					default:
+						out_str[out_index] = format[in_index];
+						out_index++;
+						break;
+				}
+				
+				in_index++;
+			}
+			
+			va_end(va);
+			ret = out_str;
+		}
+	}
+	
+	return ret;
+}
+/*
+void mach_init_printf(const char *format, ...) {
+
+					} else if (format[index] == 's') {
+						uart_puts(va_arg(va, char*));
+					} else if (format[index] == 'c') {
+						uart_putc(va_arg(va, int));
+					}
+					break;
+				default:
+					uart_putc(format[index]);
+					break;
+			}
+			
+			index++;
+		}
+		
+		va_end(va);
+	}
+}
+*/
+
 /**
  * strcmp
  * 
@@ -218,6 +295,7 @@ char *strrev(char *str) {
 
     if (str != NULL) {
         ret = str;
+        
         if ((len = strlen(str) - 1) != 0) {
             for (int i = 0; i <= len/2; i++) {
                 char tmp = str[i];
@@ -256,4 +334,24 @@ size_t strlen(const char *str) {
     }
 
     return ret;
+}
+
+char *strncpy(char *dest, char *src, size_t n) {
+	char 	*ret 	= NULL;
+	size_t 	i		= 0;
+	
+	if (dest != NULL && src != NULL) {
+		for (i = 0; ((i < n) && (src[i] != '\0')); i++) {
+			dest[i] = src[i];
+		}
+		
+		/* fill any remaining with null bytes */
+		for (; i < n; i++) {
+			dest[i] = '\0';
+		}
+		
+		ret = dest;
+	}
+	
+	return ret;
 }

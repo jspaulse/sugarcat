@@ -34,33 +34,43 @@ void initsys(struct mm_region k_phy, struct mm_region phy_kpgd, struct mm_region
 	size_t bss_sz			= (size_t)&bss_end - (size_t)&bss_start;
 	struct mm_region kpgd 	= { phy_kpgd.start + vir_start, phy_kpgd.size };
 	struct mm_region upgd 	= { phy_upgd.start + vir_start, phy_upgd.size };
-	addr_t bm_vir_start 	= (((addr_t)&k_end >> DIV_MB) + 1) << DIV_MB;
-	addr_t bm_phy_start		= bm_vir_start - vir_start;
-	int err					= 0;
-	struct atag atg;
+	//addr_t bm_vir_start 	= (((addr_t)&k_end >> DIV_MB) + 1) << DIV_MB;
+	//addr_t bm_phy_start		= bm_vir_start - vir_start;
+	//int err					= 0;
+	//struct atag atg;
 
 	/* clear el bss'o! */
 	memset(&bss_start, 0, bss_sz);
 	
+	if (k_phy.start != 0) {
+		if (atags != 0) {
+			
+		}
+	}
+	
+	setup_mmu(kpgd.start, upgd.start);
+	
 	/* find memory tag */
-	if ((err = find_tag(atags, ATAG_MEM, &atg)) == 0) {
+	/*
+	if ((err = get_tag(atags, ATAG_MEM, &atg)) == 0) {
 		if ((err = setup_mmu(kpgd.start, upgd.start)) == MMU_ERR_SUCCESS) {
-			/* write vmm
+			* write vmm
 			 * map physical region (should be ~2MB)
 			 * allocate virtual addresses for PMM
 			 * initialize PMM
-			 */
+			 *
 			
 			d_printf("k_phy: 0x%x\n", k_phy.start);
 			d_printf("bm_vir_start: 0x%x\n", bm_vir_start);
 			d_printf("bm_phy_start: 0x%x\n", bm_phy_start);
 			d_printf("did we survive?\n");
 		} else {
-			/* throw another fit */
+			* throw another fit *
 		}
 	} else {
-		/* fit throw on atags */
+		* fit throw on atags *
 	}
+	*/
 	
 	while (true) {
 		/* do something */

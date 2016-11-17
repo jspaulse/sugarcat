@@ -8,4 +8,6 @@ char *itox(unsigned int, char *);
 char *itoa(int, char *);
 int atoi(const char *);
 int strcmp(const char *, const char *);
+char *strncpy(char *dest, char *src, size_t n);
+const char *sprintf(char *out_str, const char *format, ...);
 #endif
