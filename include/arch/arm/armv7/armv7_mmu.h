@@ -50,11 +50,7 @@ inline bool armv7_is_supported_pgd_type(unsigned char type) {
     
     switch (type) {
 	case ARMV7_L1_INVALID:
-	    ret = true;
-	    break;
 	case ARMV7_L1_PG_TB:
-	    ret = true;
-	    break;
 	case ARMV7_L1_SECT:
 	    ret = true;
 	    break;
@@ -62,6 +58,28 @@ inline bool armv7_is_supported_pgd_type(unsigned char type) {
     
     return ret;
 }
+
+/**
+ * armv7_is_supported_pgt_type
+ * 
+ * determines if a page table entry type is supported
+ * @type	type to check
+ * @return true if supported
+ **/
+inline bool armv7_is_supported_pgt_type(unsigned char type) {
+    bool ret = false;
+    
+    switch(type) {
+	case ARMV7_L2_INVALID:
+	case ARMV7_L2_LARGE_PG:
+	    ret = true;
+	    break;
+    }
+    
+    return ret;
+}
+
+
 /**
  * armv7_set_domain
  * 
