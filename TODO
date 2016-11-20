@@ -1,8 +1,15 @@
-TODO
-	Move arch/arm includes into rational locations
-	modify Makefile builds based on additional CPU
-	
 Look at enabling all of the necessary caches and all that jazz.
+
+Concept idea:
+	When mapping phy->vm for i/o, keep track of requested regions (i.e., counter)
+		so, if dev A&B need region X
+			A-> mm_io_request_reg(X) creates a tracked entry (counter + 1) and returns a ptr
+				(pointer returned is added for register use? since we're allocating pages)
+			B-> mm_io_request_reg(X) returns the same ptr (added, of course)
+			
+		when a device no longer needs the region
+			A-> mm_io_free_reg(X) decrements counter, if counter == 0 free, otherwise don't
+			
 
 PL011 UART (serial communication)
 PL031 Real Time Clock

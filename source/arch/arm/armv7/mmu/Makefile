@@ -1,22 +1,12 @@
-# source/arch/arm/armv7
+# source/arch/arm/armv7/mmu
 # 
-# This is the main Makefile for arch armv7
-
-MMU			= mmu/
-
-PASS_FLAGS 	= 'ARCH=$(ARCH)' BUILD='$(BUILD)' CFLAGS='$(CFLAGS)' AFLAGS='$(AFLAGS)'
-PASS_FLAGS	+= GNU_TOOLS='$(GNU_TOOLS)' MACH='$(MACH)' CPU='$(CPU)'
-PASS_FLAGS	+= SOURCE='$(SOURCE)'
+# This is the Makefile for armv7 mmu
 
 SRC_FILES		= $(notdir $(wildcard *.c)) $(notdir $(wildcard *.s))
 SUB_FILES		= $(patsubst %.s, %.o, $(SRC_FILES))
 OBJ				= $(addprefix $(BUILD), $(patsubst %.c, %.o, $(SUB_FILES)))
 
-all:
-	@$(MAKE) -s curr
-	@$(MAKE) -s -C $(MMU) $(PASS_FLAGS)
-
-curr: $(OBJ)
+all: $(OBJ)
 
 $(BUILD)%.o : %.c
 	@echo "[GCC]		$<"

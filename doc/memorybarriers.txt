@@ -1,0 +1,13 @@
+A Data Synchronization Barrier (DSB) completes when all instructions before this instruction complete.
+A Data Memory Barrier (DMB) ensures that all explicit memory accesses before the DMB instruction complete before any explicit memory accesses after the DMB instruction start.
+An Instruction Synchronization Barrier (ISB) flushes the pipeline in the processor, so that all instructions following the ISB are fetched from cache or memory, after the ISB has been completed.
+
+Access to mmu tables should be followed with dsb (and flush)
+Access to critical regions should start and end with dmb
+
+http://stackoverflow.com/questions/22204839/what-is-the-meaning-of-the-read-memory-barrier
+"MMIO reads need to be performed in program order because they might have side effects on the device you are reading from. 
+For example, if the device is streaming data, reading the value could cause the the device to replace it with a new value. 
+It could also cause an action which may trigger a change at a different MMIO location. 
+Therefore, reads to these two locations must be ordered, 
+since the results depend on the order they are performed."

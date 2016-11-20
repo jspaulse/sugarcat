@@ -1,13 +1,3 @@
-The ARMv6 architecture contains several enhancements to exception processing, to reduce interrupt handler entry and exit time:
-SRS
-Save return state to a specified stack frame.
-RFE
-Return from exception.
-CPS
-Directly modify the CPSR.
-http://www.heyrick.co.uk/armwiki/The_Status_register <- all CPSR/SPSR, fun times!
-
-
 TODO:
 	Fixup domain accesses
 

@@ -1,9 +1,6 @@
 #ifndef ARCH_H
 #define ARCH_H
 
-void dmb();
-void dsb();
-
 int set_kern_stack(unsigned int address);
 int set_irq_stack(unsigned int address);
 int set_fiq_stack(unsigned int address);

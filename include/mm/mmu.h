@@ -6,8 +6,8 @@
 
 #define MMU_ERR_NO_PAGE_DIRS		-3
 #define MMU_ERR_ALREADY_ENABLED		-2
-#define MMU_ERR_NOT_ENABLED			-1
-#define MMU_ERR_SUCCESS				0
+#define MMU_ERR_NOT_ENABLED		-1
+#define MMU_ERR_SUCCESS			0
 #define MMU_ERR_INVALID_ENTRY		1
 #define MMU_ERR_INVALID_ACCESS		2
 #define MMU_ERR_UNSUPPORTED_VM_MAP	3
@@ -15,7 +15,7 @@
 
 
 // entry flags
-#define MMU_CACHED					0x4
+#define MMU_CACHED			0x4
 
 typedef enum {
 	MMU_4G_NO_SPLIT,
@@ -24,10 +24,10 @@ typedef enum {
 } mmu_vm_map;
 
 typedef enum {
-	PG_DIR_ENTRY			= 0x1,
-	PG_DIR_TABLE			= 0x3,
-	PG_DIR_TRANS_FAULT		= 0x7,
-	PG_TABLE_ENTRY			= 0x4,
+	PG_DIR_ENTRY		= 0x1,
+	PG_DIR_TABLE		= 0x3,
+	PG_DIR_TRANS_FAULT	= 0x7,
+	PG_TABLE_ENTRY		= 0x4,
 	PG_TABLE_TRANS_FAULT	= 0xC
 } pg_ent_t;
 

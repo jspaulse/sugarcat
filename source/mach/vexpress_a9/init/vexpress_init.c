@@ -19,6 +19,7 @@
  * THE SOFTWARE.
  */
 
+#include <arch/arm/armv7/armv7.h>
 #include <arch/arm/armv7/armv7_syscntl.h>
 #include <arch/arm/cpu/cortex_a9.h>
 #include <mach/vexpress_a9/vexpress_a9.h>
@@ -51,88 +52,94 @@ static int init_get_initrd(addr_t atag_base, struct mm_reg *reg);
  * (TODO) describe in light detail what we're doing
  **/
 void vexpress_init(unsigned int mach, addr_t atag_base) {
-	struct mm_reg	kern_reg	= {init_kvm_to_phy((addr_t)&k_start), ((size_t)&k_end - (size_t)&k_start)};
-	struct mm_reg	mmu_pte_reg	= {(init_kvm_to_phy((addr_t)&k_end) & ~MASK_MB) + MB, MMU_PTE_SIZE};
-	//struct mm_reg	mmu_pgd_reg	= {(addr_t)&k_pgd, 0x4000};
-	struct mm_reg	initrd_reg	= {0, 0};
-	struct mm_reg	mem_reg 	= {0, 0};
-	bool		initrd_ex	= false;
-	int		err		= 0;
+    struct mm_reg	kern_reg	= {init_kvm_to_phy((addr_t)&k_start), ((size_t)&k_end - (size_t)&k_start)};
+    struct mm_reg	mmu_pte_reg	= {(init_kvm_to_phy((addr_t)&k_end) & ~MASK_MB) + MB, MMU_PTE_SIZE};
+    //struct mm_reg	k_stack		= {(init_kvm_to_phy((addr_t)&kern_stack)), PG_SZ};
+    //struct mm_reg	mmu_pgd_reg	= {(addr_t)&k_pgd, 0x4000};
+    struct mm_reg	initrd_reg	= {0, 0};
+    struct mm_reg	mem_reg 	= {0, 0};
+    bool		initrd_ex	= false;
+    int			err		= 0;
 	
-	/*
-	struct mm_reg	*reserved_regs[] = {
-		&kern_reg,
-		&mem_reg,
-		&initrd
-	};
-	*/
+    /*
+    struct mm_reg *reserved_regs[] = {
+	&kern_reg,
+	&mem_reg,
+	&initrd
+    };
+    */
 
-	/* grab the largest continuous region of memory */
-	if ((err = init_get_mem(atag_base, &mem_reg)) != ERR_SUCC) {
-		kinit_panic(buf, "init_get_mem() returned %i, no defined memory regions available.", err);
-	} else if (mem_reg.size <= (kern_reg.size + mmu_pte_reg.size)) {
-		kinit_panic(buf, "not enough memory in region!  init_get_mem() returned %i bytes \
-			in largest found region, a minimum of %i bytes are required.", mem_reg.size, kern_reg.size + mmu_pte_reg.size);
-	}
+    /* grab the largest continuous region of memory */
+    if ((err = init_get_mem(atag_base, &mem_reg)) != ERR_SUCC) {
+	kinit_panic(buf, "init_get_mem() returned %i, no defined memory regions available.", err);
+    } else if (mem_reg.size <= (kern_reg.size + mmu_pte_reg.size)) {
+	kinit_panic(buf, "not enough memory in region!  init_get_mem() returned %i bytes \
+	    in largest found region, a minimum of %i bytes are required.", mem_reg.size, kern_reg.size + mmu_pte_reg.size);
+    }
 	
-	/* check if initrd exists */
-	if (tag_exists(atag_base, ATAG_INITRD2)) {
-		if ((err = init_get_initrd(atag_base, &initrd_reg)) != 0) {
-			kinit_warn(buf, "tag_exists(ATAG_INITRD2) returned true but init_get_initrd() returned %i; \
-				assuming it doesn't exist.", err);
-			initrd_ex = false;
-		} else if (initrd_reg.size == 0) {
-			kinit_warn(buf, "ATAG_INITRD2 exists but reports initrd.size == %i; \
-				assuming it doesn't exist.", initrd_reg.size);
-			initrd_ex = false;
-		} else {
-			initrd_ex = true;
-		}
-	}
+    /* check if initrd exists */
+    if (tag_exists(atag_base, ATAG_INITRD2)) {
+	if ((err = init_get_initrd(atag_base, &initrd_reg)) != 0) {
+	    kinit_warn(buf, "tag_exists(ATAG_INITRD2) returned true but init_get_initrd() returned %i; \
+		assuming it doesn't exist.", err);
+	    initrd_ex = false;
+	} else if (initrd_reg.size == 0) {
+	    kinit_warn(buf, "ATAG_INITRD2 exists but reports initrd.size == %i; \
+		assuming it doesn't exist.", initrd_reg.size);
+	    initrd_ex = false;
+	} else {
+	    initrd_ex = true;
+	    }
+    }
 	
-	/* sanity check on reservations */
-	if (!is_within_region(&mem_reg, &kern_reg)) {
-		kinit_warn(buf, "is_within_region() reports kernel region is not in largest found memory region; \
-			k_base: 0x%x, k_size: %i, m_base: 0x%x, m_size: %i.", kern_reg.base, kern_reg.size, mem_reg.base, mem_reg.size);
-	} 
+    /* sanity check on reservations */
+    if (!is_within_region(&mem_reg, &kern_reg)) {
+	kinit_warn(buf, "is_within_region() reports kernel region is not in largest found memory region; \
+	    k_base: 0x%x, k_size: %i, m_base: 0x%x, m_size: %i.", kern_reg.base, kern_reg.size, mem_reg.base, mem_reg.size);
+    } 
 	
-	/* check if mmu pte is in sane region */
-	if (!is_within_region(&mem_reg, &mmu_pte_reg)) {
-		kinit_warn(buf, "is_within_region() reports mmu_pte region is not in largest found memory region; \
-			pte_base: 0x%x, pte_size: %i, m_base: 0x%x, m_size: %i.", mmu_pte_reg.base, mmu_pte_reg.size, mem_reg.base, mem_reg.size);
-	}
+    /* check if mmu pte is in sane region */
+    if (!is_within_region(&mem_reg, &mmu_pte_reg)) {
+	kinit_warn(buf, "is_within_region() reports mmu_pte region is not in largest found memory region; \
+	    pte_base: 0x%x, pte_size: %i, m_base: 0x%x, m_size: %i.", mmu_pte_reg.base, mmu_pte_reg.size, mem_reg.base, mem_reg.size);
+    }
 	
-	/* check if overlapping with initrd */
-	if (initrd_ex && is_overlapping(&initrd_reg, &mmu_pte_reg)) {
-		kinit_warn(buf, "is_overlapping() reports mmu_pte is overlapping the initrd; pte_base: 0x%x, pte_size: %i, \
-			initrd_base: 0x%x, initrd_size: %i.", mmu_pte_reg.base, mmu_pte_reg.size, initrd_reg.base, initrd_reg.size);
-	}
+    /* check if overlapping with initrd */
+    if (initrd_ex && is_overlapping(&initrd_reg, &mmu_pte_reg)) {
+	kinit_warn(buf, "is_overlapping() reports mmu_pte is overlapping the initrd; pte_base: 0x%x, pte_size: %i, \
+	    initrd_base: 0x%x, initrd_size: %i.", mmu_pte_reg.base, mmu_pte_reg.size, initrd_reg.base, initrd_reg.size);
+    }
 	
-	/* do preliminary interrupt enabling */
-	/* allocate stacks for exceptions */
+    /* bring up mmu (full fledged) */
+    /* this gives us real virt_to_phy, phy_to_virt */
 	
-	/* bring cpu's up into holding pen */
-	/* (this can be arch/arm/armv7/cpus) */
-	/* (this also means we'll need to define the private interrupts */
-	/* for stuff and things) */
+    /* do preliminary interrupt enabling (?) */
+    /* full fledged interrupt enabling (?)	*/
 	
-	/* stop complaining! */
-	if (mach == 0) {
+    /* enable, bring up scu */
+    /* allocate stacks for additional cpu's
+     * we only need them temporarily;
+     * once they are in the holding pen
+     * they will only leave once we have a task
+     * or they recv an interrupt 
+     */
+    
+	
+    /* bring cpu's up into holding pen */
+    /* set their mmu's to k_pgd
+     * (seems like we should've done this 
+     * in low init)
+     * (this can be arch/arm/armv7/cpus) */
+    /* (this also means we'll need to define the private interrupts */
+    /* for stuff and things) */
+	
+    /* stop complaining! */
+    if (mach == 0) {
 		
-	}
+    }
 	
-	/* what we're going to do here:
-	 * bring up full fledged mmu w/small(?) pages
-	 *	this requires 2 MiB for the secondary tables
-	 * interrupts - only enable irq #0 (for cpus)
-	 * bring up secondary cpus and put them in holding pen
-	 * 	secondary cpu's will need their mmu's set up and stacks
-	 * since ss is going to be trashed, we'll need to keep the 
-	 * stack page reserved.
-	 * 
-	 **/
 	
-	while(1);
+    while(1);
 }
 
 /**
@@ -147,36 +154,36 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
  * @return errno
  **/
 static int init_get_mem(addr_t atag_base, struct mm_reg *reg) {
-	struct atag 	*sch	= NULL;
-	struct mm_reg	fnd 	= {0, 0};
-	int 		ret 	= ERR_SUCC;
+    struct atag		*sch	= NULL;
+    struct mm_reg	fnd 	= {0, 0};
+    int 		ret 	= ERR_SUCC;
 
-	if (reg != NULL) {
-		sch = get_tag(atag_base, ATAG_MEM);
+    if (reg != NULL) {
+	sch = get_tag(atag_base, ATAG_MEM);
 		
-		if (sch != NULL) {
-			fnd.base	= sch->u.mem.start;
-			fnd.size	= sch->u.mem.sz;
+	if (sch != NULL) {
+	    fnd.base	= sch->u.mem.start;
+	    fnd.size	= sch->u.mem.sz;
 			
-			while ((sch = get_next_tag(sch, ATAG_MEM)) != NULL) {
-				if ((fnd.base + fnd.size) == sch->u.mem.start) { /* regions are continuous */
-					fnd.size += sch->u.mem.sz;
-				} else if (fnd.size < sch->u.mem.sz) { /* larger region */
-					fnd.base	= sch->u.mem.start;
-					fnd.size	= sch->u.mem.sz;
-				}
-			}
-			
-			memcpy(reg, &fnd, sizeof(struct mm_reg));
-		
-		} else {
-			ret = ERR_NOTFND;
+	    while ((sch = get_next_tag(sch, ATAG_MEM)) != NULL) {
+		if ((fnd.base + fnd.size) == sch->u.mem.start) { /* regions are continuous */
+		    fnd.size += sch->u.mem.sz;
+		} else if (fnd.size < sch->u.mem.sz) { /* larger region */
+		    fnd.base	= sch->u.mem.start;
+		    fnd.size	= sch->u.mem.sz;
 		}
+	    }
+			
+	    memcpy(reg, &fnd, sizeof(struct mm_reg));
+		
 	} else {
-		ret = ERR_INVAL;
+	    ret = ERR_NOTFND;
 	}
+    } else {
+	ret = ERR_INVAL;
+    }
 	
-	return ret;
+    return ret;
 }
 
 /**
@@ -189,21 +196,21 @@ static int init_get_mem(addr_t atag_base, struct mm_reg *reg) {
  * @return errno
  **/
 static int init_get_initrd(addr_t atag_base, struct mm_reg *reg) {
-	struct atag 	*sch	= NULL;
-	int 		ret 	= 0;
+    struct atag 	*sch	= NULL;
+    int 		ret 	= 0;
 	
-	if (reg != NULL) {
-		sch = get_tag(atag_base, ATAG_INITRD2);
+    if (reg != NULL) {
+	sch = get_tag(atag_base, ATAG_INITRD2);
 		
-		if (sch != NULL) {
-			reg->base = sch->u.initrd.start;
-			reg->size = sch->u.initrd.sz;
-		} else {
-			ret = ERR_NOTFND;
-		}
+	if (sch != NULL) {
+	    reg->base = sch->u.initrd.start;
+	    reg->size = sch->u.initrd.sz;
 	} else {
-		ret = ERR_INVAL;
+	    ret = ERR_NOTFND;
 	}
+    } else {
+	ret = ERR_INVAL;
+    }
 	
-	return ret;
+    return ret;
 }

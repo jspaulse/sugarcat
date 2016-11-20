@@ -1,7 +1,7 @@
 #ifndef MEM_H
 #define MEM_H
 #include <stddef.h>
-#include <arch/arch.h>
+#include <types.h>
 
 /**
  * memr
@@ -15,7 +15,7 @@
  * 
  * NOTE:  This function should only be utilized when reading to a peripheral
  **/
-inline unsigned int memr(unsigned int address) {
+inline unsigned int memr(addr_t address) {
 	return *(volatile unsigned int *)address;
 }
 
@@ -31,7 +31,7 @@ inline unsigned int memr(unsigned int address) {
  * 
  * NOTE:  This function should only be utilized when writing to a peripheral
  **/
-inline void memw(unsigned int address, unsigned int data) {
+inline void memw(addr_t address, unsigned int data) {
 	*(volatile unsigned int *)address = data;
 }
 
