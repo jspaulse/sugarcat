@@ -20,21 +20,26 @@
  */
 
 #include <arch/arm/armv7/armv7.h>
+#include <arch/arm/armv7/armv7_mmu.h>
 #include <arch/arm/armv7/armv7_syscntl.h>
 #include <arch/arm/cpu/cortex_a9.h>
 #include <mach/vexpress_a9/vexpress_a9.h>
 #include <mach/mach_init.h>
 #include <init/kinit.h>
 #include <util/atag.h>
+#include <util/bits.h>
+#include <mm/mem.h>
 #include <mm/mm.h>
 #include <types.h>
 #include <errno.h>
 #include <stdbool.h>
 
+#define PG_SZ		4096
 #define MB		0x100000
-#define MMU_PTE_SIZE	0x200000
+#define MMU_PGTB_SIZE	0x200000
 #define MASK_MB 	0xFFFFF
 #define DIV_MULT_MB 	20
+#define DIV_MULT_PG	12
 
 /* used for kinit_warn/info/print */
 static char buf[512];
@@ -42,7 +47,9 @@ static char buf[512];
 /* helper functions */
 static int init_get_mem(addr_t atag_base, struct mm_reg *reg);
 static int init_get_initrd(addr_t atag_base, struct mm_reg *reg);
-
+int init_map_kern_pgtb(addr_t pg_dir, struct mm_reg *kern_reg);
+addr_t table_walk(addr_t pgd, addr_t virt_addr); /* tmp */
+extern void install_ivt(void); /* tmp */
 /**
  * vexpress_init
  * 
@@ -52,8 +59,9 @@ static int init_get_initrd(addr_t atag_base, struct mm_reg *reg);
  * (TODO) describe in light detail what we're doing
  **/
 void vexpress_init(unsigned int mach, addr_t atag_base) {
+    size_t		bss_sz		= (size_t)&bss_end - (size_t)&bss_start;
     struct mm_reg	kern_reg	= {init_kvm_to_phy((addr_t)&k_start), ((size_t)&k_end - (size_t)&k_start)};
-    struct mm_reg	mmu_pte_reg	= {(init_kvm_to_phy((addr_t)&k_end) & ~MASK_MB) + MB, MMU_PTE_SIZE};
+    struct mm_reg	mmu_pgtb_reg	= {(init_kvm_to_phy((addr_t)&k_end) & ~MASK_MB) + MB, MMU_PGTB_SIZE};
     //struct mm_reg	k_stack		= {(init_kvm_to_phy((addr_t)&kern_stack)), PG_SZ};
     //struct mm_reg	mmu_pgd_reg	= {(addr_t)&k_pgd, 0x4000};
     struct mm_reg	initrd_reg	= {0, 0};
@@ -68,13 +76,15 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
 	&initrd
     };
     */
+    
+    memset(&bss_start, 0, bss_sz);
 
     /* grab the largest continuous region of memory */
     if ((err = init_get_mem(atag_base, &mem_reg)) != ERR_SUCC) {
 	kinit_panic(buf, "init_get_mem() returned %i, no defined memory regions available.", err);
-    } else if (mem_reg.size <= (kern_reg.size + mmu_pte_reg.size)) {
+    } else if (mem_reg.size <= (kern_reg.size + mmu_pgtb_reg.size)) {
 	kinit_panic(buf, "not enough memory in region!  init_get_mem() returned %i bytes \
-	    in largest found region, a minimum of %i bytes are required.", mem_reg.size, kern_reg.size + mmu_pte_reg.size);
+	    in largest found region, a minimum of %i bytes are required.", mem_reg.size, kern_reg.size + mmu_pgtb_reg.size);
     }
 	
     /* check if initrd exists */
@@ -89,9 +99,9 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
 	    initrd_ex = false;
 	} else {
 	    initrd_ex = true;
-	    }
+	}
     }
-	
+    
     /* sanity check on reservations */
     if (!is_within_region(&mem_reg, &kern_reg)) {
 	kinit_warn(buf, "is_within_region() reports kernel region is not in largest found memory region; \
@@ -99,17 +109,26 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
     } 
 	
     /* check if mmu pte is in sane region */
-    if (!is_within_region(&mem_reg, &mmu_pte_reg)) {
-	kinit_warn(buf, "is_within_region() reports mmu_pte region is not in largest found memory region; \
-	    pte_base: 0x%x, pte_size: %i, m_base: 0x%x, m_size: %i.", mmu_pte_reg.base, mmu_pte_reg.size, mem_reg.base, mem_reg.size);
+    if (!is_within_region(&mem_reg, &mmu_pgtb_reg)) {
+	kinit_warn(buf, "is_within_region() reports mmu_pgtb region is not in largest found memory region; \
+	    pgtb_base: 0x%x, pgtb_size: %i, m_base: 0x%x, m_size: %i.", mmu_pgtb_reg.base, mmu_pgtb_reg.size, mem_reg.base, mem_reg.size);
     }
 	
     /* check if overlapping with initrd */
-    if (initrd_ex && is_overlapping(&initrd_reg, &mmu_pte_reg)) {
-	kinit_warn(buf, "is_overlapping() reports mmu_pte is overlapping the initrd; pte_base: 0x%x, pte_size: %i, \
-	    initrd_base: 0x%x, initrd_size: %i.", mmu_pte_reg.base, mmu_pte_reg.size, initrd_reg.base, initrd_reg.size);
+    if (initrd_ex && is_overlapping(&initrd_reg, &mmu_pgtb_reg)) {
+	kinit_warn(buf, "is_overlapping() reports mmu_pgtb is overlapping the initrd; pgtb_base: 0x%x, pgtb_size: %i, \
+	    initrd_base: 0x%x, initrd_size: %i.", mmu_pgtb_reg.base, mmu_pgtb_reg.size, initrd_reg.base, initrd_reg.size);
     }
-	
+    
+    /* bring up post init mmu */
+    if ((err = armv7_mmu_init_post_enable()) != ERR_SUCC) {
+	kinit_panic(buf, "armv7_init_post_enable() failed with %i; somehow we've made it this far without \
+	    enabling the mmu?\n", err);
+    }
+    
+    /* temporary */
+    install_ivt();
+
     /* bring up mmu (full fledged) */
     /* this gives us real virt_to_phy, phy_to_virt */
 	
@@ -133,7 +152,6 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
     /* (this also means we'll need to define the private interrupts */
     /* for stuff and things) */
 	
-    /* stop complaining! */
     if (mach == 0) {
 		
     }
@@ -214,3 +232,4 @@ static int init_get_initrd(addr_t atag_base, struct mm_reg *reg) {
 	
     return ret;
 }
+

@@ -26,6 +26,7 @@
 #include <types.h>
 #include <stddef.h>
 
+#define PGD_ENTRY_CNT	2048
 #define DIV_MULT_MB	20
 
 /* init_mmu functions */
@@ -47,7 +48,7 @@ static void move_high_sp(void);
 void vexpress_boot_init(unsigned int r0, int mach, addr_t atags) {
     size_t bss_sz 	= (size_t)&ss_bss_end - (size_t)&ss_bss_start;
     size_t k_sz		= (size_t)&k_end - (size_t)&k_start;
-	
+    
     /* clean bss */
     memset(&ss_bss_start, 0, bss_sz);
 	
@@ -61,13 +62,13 @@ void vexpress_boot_init(unsigned int r0, int mach, addr_t atags) {
     }
 	
     /* init/enable mmu */
-    init_user_pg_dir((addr_t)&k_pgd);
-    init_kern_pg_dir((addr_t)&k_pgd, init_kvm_to_phy((addr_t)&k_start), k_sz);
+    init_user_pg_dir((addr_t)&init_k_pgd);
+    init_kern_pg_dir((addr_t)&init_k_pgd, init_kvm_to_phy((addr_t)&k_start), k_sz);
     init_enable_mmu();
 	
     /* move to vm sp */
     move_high_sp();
-	
+    
     /* branch to main initialization code */
     vexpress_init(mach, atags);
 }
@@ -157,7 +158,7 @@ static void init_kern_pg_dir(addr_t k_phy_pg_dir, addr_t k_phy_start, size_t k_s
  * @virt_addr	virtual address being mapped to physical address
  **/
 static void init_pg_dir_entry(addr_t *pg_dir, addr_t phy_addr, addr_t virt_addr) {
-    unsigned int 	entry 	= (phy_addr & PGD_SECT_MASK) | (ARMV7_AP_KRW_URW << 10) | ARMV7_L1_SECT;
+    unsigned int 	entry 	= (phy_addr & PGD_SECT_MASK) | ( ARMV7_MMU_ACC_KRW_URW << 10) | ARMV7_MMU_PGD_SECTION;
     addr_t 		v_start = (addr_t)&kv_start;
     int 		index	= 0;
 	

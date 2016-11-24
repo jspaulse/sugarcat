@@ -5,33 +5,22 @@
 #include <errno.h>
 #include <stdbool.h>
 
-/* pgd entries */
-#define ARMV7_L1_INVALID	0x0
-#define ARMV7_L1_PG_TB		0x1
-#define ARMV7_L1_SECT		0x2
-#define ARMV7_L1_SUPER_SECT	0x3
-#define ARMV7_L1_SHIFT_DOMAIN	5
-#define ARMV7_L1_SECT_SHIFT_AP	10
-/* pgt entries */
-#define ARMV7_L2_INVALID	0x0
-#define ARMV7_L2_LARGE_PG	0x1
-#define ARMV7_L2_SMALL_PG	0x2
-#define ARMV7_L2_SHIFT_AP	4
-/* simplified access */
-#define ARMV7_AP_KRW_UNO	0x0
-#define ARMV7_AP_KRW_URW	0x1
-#define ARMV7_AP_KRO_UNO	0x2
-#define ARMV7_AP_KRO_URO	0x3
-/* pgd */
-#define KERN_PGD		0x1
-#define USER_PGD		0x2
-#define PGD_SZ			0x2000
-#define PGD_ENTRY_CNT		2048
+#define PG_DIV_MASK		0x7
+#define PGD_IDX_SHIFT		20
+#define PGD_SECT_AP_SHIFT	10
+#define PGD_DOMAIN_SHIFT	5
+#define PGD_DOMAIN_MASK		(0xF << PGD_DOMAIN_SHIFT)
+#define PGD_AP_MASK		(0x3 << PGD_SECT_AP_SHIFT)
+#define PGD_TYPE_MASK		0x3
 #define PGD_SECT_MASK		0xFFF00000
-#define PGD_TBL_MASK		0xFFFFFC00
-/* pg_tb */
-#define PG_TB_SZ		0x200000
-#define PG_TB_ENTRY_SZ		0x400
+#define PGD_TABLE_MASK		0xFFFFFC00
+
+#define PGTB_IDX_SHIFT		12
+#define PGTB_IDX_MASK		0xFF
+#define PGTB_LG_PG_MASK		0xFFFF0000
+#define PGTB_SM_PG_MASK		0xFFFFF000
+#define PGTB_AP_SHIFT		4
+
 /* dacr */
 #define DACR_DOMAIN_CNT		15
 #define DACR_MASK		0x3
@@ -39,20 +28,140 @@
 #define TTBR_MASK		0xFFFFC000
 
 /**
+ * armv7_mmu_pgd_type
+ * 
+ * defines types of mmu page directory entries
+ **/
+typedef enum {
+    ARMV7_MMU_PGD_INVALID	= 0x0,
+    ARMV7_MMU_PGD_TABLE		= 0x1,
+    ARMV7_MMU_PGD_SECTION	= 0x2,
+    ARMV7_MMU_PGD_SUPER_SECTION	= 0x3
+} armv7_mmu_pgd_type;
+
+/**
+ * armv7_mmu_pgtb_type
+ * 
+ * defines types of mmu page table entries
+ **/
+typedef enum {
+    ARMV7_MMU_PGTB_INVALID	= 0x0,
+    ARMV7_MMU_PGTB_LARGE_PG	= 0x1,
+    ARMV7_MMU_PGTB_SMALL_PG	= 0x2
+} armv7_mmu_pgtb_type;
+
+/**
+ * armv7_mmu_acc_perm
+ * 
+ * defines access permissions for mmu entries
+ **/
+typedef enum {
+    ARMV7_MMU_ACC_KRW_NOU	= 0x0,
+    ARMV7_MMU_ACC_KRW_URW	= 0x1,
+    ARMV7_MMU_ACC_KRO_NOU	= 0x2,
+    ARMV7_MMU_ACC_KRO_URO	= 0x3
+} armv7_mmu_acc_perm;
+
+/**
+ * armv7_mmu_pgd_entry
+ * 
+ * defines a mmu entry for page directories
+ * 
+ * @phy_addr	physical address of entry
+ * @virt_addr	virtual address of entry
+ * @domain	domain access of entry
+ * @acc_perm	access permission of entry
+ * @type	type of entry
+ * @flags	additional entry flags
+ **/
+struct armv7_mmu_pgd_entry {
+    addr_t		phy_addr;
+    addr_t		virt_addr;
+    unsigned char	domain;
+    armv7_mmu_acc_perm	acc_perm;
+    armv7_mmu_pgd_type	type;
+    unsigned int	flags;
+};
+
+/**
+ * armv7_mmu_pgtb_entry
+ * 
+ * defines a mmu entry for page tables
+ * 
+ * @phy_addr	physical address of entry
+ * @virt_addr	virtual address of entry
+ * @acc_perm	access permission of entry
+ * @type	type of entry
+ * @flags	additional entry flags
+ **/
+struct armv7_mmu_pgtb_entry {
+    addr_t		phy_addr;
+    addr_t		virt_addr;
+    armv7_mmu_acc_perm	acc_perm;
+    armv7_mmu_pgtb_type	type;
+    unsigned int	flags;
+};
+
+    
+/**
+ * armv7_mmu_pgd_entry
+ * 
+ * defines an entry for page directories
+ * 
+ * @phy_addr		physical address of entry
+ * @virt_addr		virtual address of entry
+ * @domain		domain access of entry
+ * @access_perms	access permissions of entry
+ * @type		type of entry
+ * @flags		additional flags of entry
+ **/
+struct armv7_mmu_pgd_ent {
+    addr_t		phy_addr;
+    addr_t		virt_addr;
+    unsigned char	domain;
+    unsigned char	access_perms;
+    unsigned char	type;
+    unsigned char	flags;
+};
+
+/**
+ * armv7_mmu_pgtb_ent
+ * 
+ * defines an entry for page tables
+ * 
+ * @phy_addr		physical address of entry
+ * @virt_addr		virtual address of entry
+ * @access_perms	access permissions of entry
+ * @type		type of entry
+ * @flags		additional flags of entry
+ **/
+struct armv7_mmu_pgtb_ent {
+    addr_t		phy_addr;
+    addr_t		virt_addr;
+    unsigned char	access_perms;
+    unsigned char	type;
+    unsigned int	flags;
+};
+
+/**
  * armv7_is_supported_pgd_type
  * 
- * determins if a page dir entry type is supported
+ * determines if a page directory entry type is supported
+ * 
  * @type	type to check
  * @return true if supported
  **/
-inline bool armv7_is_supported_pgd_type(unsigned char type) {
+inline bool armv7_is_supported_pgd_type(armv7_mmu_pgd_type type) {
     bool ret = false;
     
     switch (type) {
-	case ARMV7_L1_INVALID:
-	case ARMV7_L1_PG_TB:
-	case ARMV7_L1_SECT:
+	case ARMV7_MMU_PGD_INVALID:
+	case ARMV7_MMU_PGD_SECTION:
+	case ARMV7_MMU_PGD_TABLE:
 	    ret = true;
+	    break;
+	case ARMV7_MMU_PGD_SUPER_SECTION:
+	    ret = false;
 	    break;
     }
     
@@ -60,25 +169,29 @@ inline bool armv7_is_supported_pgd_type(unsigned char type) {
 }
 
 /**
- * armv7_is_supported_pgt_type
+ * armv7_is_supported_pgtb_type
  * 
  * determines if a page table entry type is supported
+ * 
  * @type	type to check
  * @return true if supported
  **/
-inline bool armv7_is_supported_pgt_type(unsigned char type) {
+
+inline bool armv7_is_supported_pgtb_type(armv7_mmu_pgtb_type type) {
     bool ret = false;
     
-    switch(type) {
-	case ARMV7_L2_INVALID:
-	case ARMV7_L2_LARGE_PG:
+    switch (type) {
+	case ARMV7_MMU_PGTB_INVALID:
+	case ARMV7_MMU_PGTB_LARGE_PG:
 	    ret = true;
+	    break;
+	case ARMV7_MMU_PGTB_SMALL_PG:
+	    ret = false;
 	    break;
     }
     
     return ret;
 }
-
 
 /**
  * armv7_set_domain
@@ -120,46 +233,19 @@ inline bool armv7_is_mmu_enabled(void) {
     return (armv7_get_sctlr() & ARMV7_SCTLR_MMU_ENB);
 }
 
-/**
- * armv7_create_2g_pgd_to_pgtb
- * 
- * creates a map between a page directory and subsequent page tables
- * for a 2g:2g split. all entries created in page tables and invalid
- * 
- * this assumes that the regions pgd and pg_tb are continuous and that
- * page directory entries are every 1024 bytes.
- * 
- * this also assumes a uniform domain (and !xn) for every entry.
- * 
- * @pgd		page directory
- * @pg_tb	page tables
- * @domain	domain flags
- * @return errno
- **/
-inline int armv7_create_2g_pgd_to_pgtb(addr_t pgd, addr_t pg_tb, unsigned char domain) {
-    addr_t *pg_dir	= (addr_t *)pgd;
-    int ret 		= ERR_SUCC;
-    
-    /* clean (invalidate) all entries */
-    memset(pg_dir, 0, PG_TB_SZ);
-    
-    /* 
-     * PGD_ENTRY_CNT number of entries,
-     * iterate through them all and write
-     * their associated pg_tb address w/domain
-     */
-    for (int i = 0; i < PGD_ENTRY_CNT; i++) {
-	addr_t pg_tb_entry = (pg_tb + (i * PG_TB_ENTRY_SZ));
-	
-	pg_dir[i] = (pg_tb_entry | (domain << 5) | ARMV7_L1_PG_TB);
-    }
-    
-    return ret;
-}
-
 /* armv7_mmu.c */
-int armv7_mmu_init_prior_enable(void);
-int armv7_mmu_set_pgd(addr_t address, unsigned char flags, unsigned char pg_dir);
-int armv7_mmu_map_pgd(addr_t paddr, addr_t vaddr, unsigned char domain, unsigned char acc_perm, unsigned char type, unsigned char flags, bool update);
+int armv7_mmu_init_post_enable(void);
+
+void armv7_mmu_set_kern_pgd(addr_t pgd_addr, unsigned char flags);
+void armv7_mmu_set_user_pgd(addr_t pgd_addr, unsigned char flags);
+
+int armv7_mmu_map_pgd(struct armv7_mmu_pgd_entry *pgd_ent);
+int armv7_mmu_map_pgtb(struct armv7_mmu_pgtb_entry *pgtb_ent);
+int armv7_mmu_map_pgd_pgtb(struct armv7_mmu_pgd_entry *pgd_ent, struct armv7_mmu_pgtb_entry *pgtb_ent);
+
+int armv7_mmu_map_new_pgd(addr_t pgd_addr, struct armv7_mmu_pgd_entry *pgd_ent);
+int armv7_mmu_map_new_pgtb(addr_t pgd, struct armv7_mmu_pgtb_entry *pgtb_ent);
+int armv7_mmu_map_new_pgd_pgtb(addr_t pgdir, struct armv7_mmu_pgd_entry *pgd_ent, struct armv7_mmu_pgtb_entry *pgtb_ent);
+
 
 #endif

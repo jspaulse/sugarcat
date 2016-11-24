@@ -3,7 +3,7 @@
 #include <types.h>
 
 /** kernel.ld **/
-extern addr_t kp_start, kv_start;
+extern addr_t kp_start, kv_start, init_k_pgd;
 extern addr_t ss_bss_start, ss_bss_end;
 extern addr_t k_start, k_end;
 extern addr_t k_pgd;

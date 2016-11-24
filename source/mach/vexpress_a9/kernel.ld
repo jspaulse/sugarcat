@@ -4,12 +4,12 @@ ENTRY(_vexpress_boot)
 
 kp_start	= 0x60000000;
 kv_start 	= 0x80000000;
+init_k_pgd	= 0x60300000;
 
 SECTIONS {
 	
 	. = 0x60004000;
 	k_pgd = .;
-
 	. = 0x60008000;
 	
 	.start_sec : {

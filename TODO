@@ -1,4 +1,33 @@
+/* do we need these? */
+addr_t armv7_mmu_get_active_kernel_pgd(...);
+addr_t armv7_mmu_get_active_user_pgd(...);
+
+/* next, we'll define an MMU interface */
+
+Concept idea:
+    Wrap arch specific things! As an example, the mmu:
+	mmu.c mmu_map(phy_page, virt_page, (DEVICE|CACHED), (KERNEL|USER))
+	-> arch/armv7/mmu/armv7_arch_mmu.c -> arch_mmu_map(phy_page, virt_page)
+	    -> arch/armv7/mmu/armv7_mmu.c -> armv7_mmu_map_pgtb(struct ...)
+    So, anything that ends up being arch. specific will be required to provide an arch interface.
+    
+vexpress_init.c
+    variety of things to do!
+
+armv7_mmu.c/h
+    introduce caching flags and all that jazzery.
+    entry type support
+	maybe move that to some sort of configuration?
+    
+    
 Look at enabling all of the necessary caches and all that jazz.
+
+init
+    need to move mmu tables higher and use our kpgd for later
+    
+mmu
+    update is worthless because values will be updated regardless
+    apparently that memory region needs to stay pristine ;D
 
 Concept idea:
 	When mapping phy->vm for i/o, keep track of requested regions (i.e., counter)
@@ -24,10 +53,6 @@ PL110/PL111 Color LCD/HDLCD (software rendering, no GPU)
 	
 PL180 MultiMedia Card Interface (MMCI)
 
-Most directories need fixed up Makefiles
-	Use vexpress/Makefile for main folder makefiles
-	Use vexpress/init/ for sub folder makefiles
-
 kinit/kinit_warn/panic
 	Garbage functions, need better.
 	panic should probably dump more
@@ -40,7 +65,6 @@ Gotta get hacky with the ttbr1 address if you want it to work properly
 		Therefore, it might be beneficial to keep the pages (kp_base + 0x6000)
 		and set the ttbr1 base to (kp_base + 0x4000)
 
-Fix-up atags for strtok like usage
 Fixup domain access
 Use Small Pages when using l1/l2 on kernel.
 
