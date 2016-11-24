@@ -102,47 +102,6 @@ struct armv7_mmu_pgtb_entry {
     unsigned int	flags;
 };
 
-    
-/**
- * armv7_mmu_pgd_entry
- * 
- * defines an entry for page directories
- * 
- * @phy_addr		physical address of entry
- * @virt_addr		virtual address of entry
- * @domain		domain access of entry
- * @access_perms	access permissions of entry
- * @type		type of entry
- * @flags		additional flags of entry
- **/
-struct armv7_mmu_pgd_ent {
-    addr_t		phy_addr;
-    addr_t		virt_addr;
-    unsigned char	domain;
-    unsigned char	access_perms;
-    unsigned char	type;
-    unsigned char	flags;
-};
-
-/**
- * armv7_mmu_pgtb_ent
- * 
- * defines an entry for page tables
- * 
- * @phy_addr		physical address of entry
- * @virt_addr		virtual address of entry
- * @access_perms	access permissions of entry
- * @type		type of entry
- * @flags		additional flags of entry
- **/
-struct armv7_mmu_pgtb_ent {
-    addr_t		phy_addr;
-    addr_t		virt_addr;
-    unsigned char	access_perms;
-    unsigned char	type;
-    unsigned int	flags;
-};
-
 /**
  * armv7_is_supported_pgd_type
  * 

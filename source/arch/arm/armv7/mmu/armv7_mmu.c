@@ -29,7 +29,7 @@
 #include <stdbool.h>
 
 /* keep track of various things */
-static bool init	= false;
+static bool init 	= false;
 static addr_t user_pgd 	= 0, kern_pgd = 0;
 static int pg_div 	= 0;	/* mmu split */
 
