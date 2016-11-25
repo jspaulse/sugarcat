@@ -2,7 +2,12 @@
 addr_t armv7_mmu_get_active_kernel_pgd(...);
 addr_t armv7_mmu_get_active_user_pgd(...);
 
-/* next, we'll define an MMU interface */
+Concept idea:
+    For heap allocation (I.E., kmalloc, kfree)
+	Have the heap descend downwards
+	Put the heap at the top of memory
+	    Should we pre allocate N number of virtual addresses?
+	    
 
 Concept idea:
     Wrap arch specific things! As an example, the mmu:
@@ -12,7 +17,13 @@ Concept idea:
     So, anything that ends up being arch. specific will be required to provide an arch interface.
     
 vexpress_init.c
-    variety of things to do!
+    init_mmu_entry
+	flags doesn't make sense
+	    it changes between different entries
+	init_setup_kern_pgtb
+	init_map_kern_pgtb
+    armv7_mmu_set_kern_pgd(..)
+	actually use flags
 
 armv7_mmu.c/h
     introduce caching flags and all that jazzery.

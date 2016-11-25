@@ -27,8 +27,7 @@ extern void armv7_undef_hand(void);
 extern void armv7_dat_abt_hand(void);
 extern void armv7_pref_abt_hand(void);
 
-static unsigned int ivt[16] __attribute__((aligned(128)));
-/*
+static unsigned int ivt[16] __attribute__((aligned(128))) = {
     ARMV7_LDR_PC | 0x18,
     ARMV7_LDR_PC | 0x18,
     ARMV7_LDR_PC | 0x18,
@@ -46,8 +45,9 @@ static unsigned int ivt[16] __attribute__((aligned(128)));
     (unsigned int)armv7_irq_hand,
     16
 };
-*/
+
 void install_ivt(void) {
+	/*
 	for (int i = 0; i < 8; i++) {
 		ivt[i] = ARMV7_LDR_PC | 0x18;
 	}
@@ -62,6 +62,7 @@ void install_ivt(void) {
 	ivt[15]		= (unsigned int)20;
 	
 	mach_init_printf("install_ivt()\n");
+	*/
 	/* lastly, set the vector base */
 	armv7_set_ivt_base((unsigned int)&ivt);
 }
@@ -75,6 +76,8 @@ void dump_data_abt(unsigned int addr) {
 	
 	asm volatile ("mrc p15, 0, %0, c5, c0, 0\n" : "=r" (type));
 	mach_init_printf("[ERROR] Data Abort at 0x%x, reason: 0x%x\n", addr, type);
+	
+	while(1);
 }
 
 void dump_pref_abt(unsigned int addr) {

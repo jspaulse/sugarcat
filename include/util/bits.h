@@ -11,7 +11,7 @@
  * @return index+1 of lsb or 0 if x == 0
  **/
 inline int idx_lsb(unsigned int x) {
-	return __builtin_ffs(x);
+    return __builtin_ffs(x);
 }
 
 
@@ -24,13 +24,13 @@ inline int idx_lsb(unsigned int x) {
  * @return index+1 of msb or 0 if x == 0
  **/
 inline int idx_msb(unsigned int x) {
-	int ret = 0;
+    int ret = 0;
 	
-	if (x > 0) {
-		ret = ((sizeof(x) << 3) - __builtin_clz(x));
-	}
+    if (x > 0) {
+	ret = ((sizeof(x) << 3) - __builtin_clz(x));
+    }
 	
-	return ret;
+    return ret;
 }
 
 /**
@@ -42,13 +42,13 @@ inline int idx_msb(unsigned int x) {
  * @return most significant bit
  **/
 inline unsigned int clr_lv_msb(unsigned int x) {
-	unsigned int ret = 0;
+    unsigned int ret = 0;
 	
-	if (x > 0) {
-		ret = (1 << (idx_msb(x) - 1));
-	}
-	
-	return ret;
+    if (x > 0) {
+	ret = (1 << (idx_msb(x) - 1));
+    }
+    
+    return ret;
 }
 
 /**
@@ -60,35 +60,35 @@ inline unsigned int clr_lv_msb(unsigned int x) {
  * @return least significant bit
  **/
 inline unsigned int clr_lv_lsb(unsigned int x) {
-	unsigned int ret = 0;
+    unsigned int ret = 0;
 	
-	if (x > 0) {
-		ret = (1 << (idx_lsb(x) - 1));
-	}
+    if (x > 0) {
+	ret = (1 << (idx_lsb(x) - 1));
+    }
 	
-	return ret;
+    return ret;
 }
 
 inline unsigned int lowest_bit(unsigned int x) {
-	return (x & (int)-x);
+    return (x & (int)-x);
 }
 
 inline unsigned int highest_bit(unsigned int x) {
-	x |= (x >> 1);
-	x |= (x >> 2);
-	x |= (x >> 4);
-	x |= (x >> 8);
-	x |= (x >> 16);
+    x |= (x >> 1);
+    x |= (x >> 2);
+    x |= (x >> 4);
+    x |= (x >> 8);
+    x |= (x >> 16);
 	
-	return x - (x >> 1);
+    return x - (x >> 1);
 }
 
 inline bool is_power_of_two(unsigned int x) {
-  return ((x != 0) && !(x & (x - 1)));
+    return ((x != 0) && !(x & (x - 1)));
 }
 
 inline int loc_lowest_bit(unsigned int x) {
-	return __builtin_ffs(x) - 1;
+    return __builtin_ffs(x) - 1;
 }
 
 #endif

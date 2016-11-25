@@ -270,119 +270,24 @@ int armv7_mmu_map_pgtb(struct armv7_mmu_pgtb_entry *pgtb_ent) {
     return ret;
 }
 
-
-/**
- * armv7_mmu_map_new_pgd_pgtb
- * 
- * creates both a new page directory and page table entry based on specified structures.
- * this (logically) requires that pgd_ent->phy_addr is the page table
- * and pgd_ent->virt_addr == pgtb_ent->virt_addr.
- * this does not (and must not) effect the current operating state of the mmu.
- * 
- * @pgdir	page directory base address
- * @pgd_ent	page directory entry
- * @pgtb_ent	page table entry
- * @return errno
- **/
-int armv7_mmu_map_new_pgd_pgtb(addr_t pgdir, struct armv7_mmu_pgd_entry *pgd_ent, struct armv7_mmu_pgtb_entry *pgtb_ent) {
-    int ret = ERR_SUCC;
-    
-    if (pgd_ent != NULL && pgtb_ent != NULL) {
-	if (pgd_ent->type == ARMV7_MMU_PGD_TABLE) {
-	    if (armv7_is_supported_pgtb_type(pgtb_ent->type)) {
-		if ((ret = create_pgtb_entry(pgd_ent->phy_addr, pgtb_ent)) == ERR_SUCC) {
-		    ret = create_pgd_entry(pgdir, pgd_ent);
-		}
-	    } else {
-		ret = ERR_NOTSUPP;
-	    }
-	} else {
-	    ret = ERR_INVAL;
-	}
-    } else {
-	ret = ERR_INVAL;
-    }
-    
-    return ret;
-}
-
-/**
- * armv7_mmu_map_pgd_pgtb
- * 
- * creates both a new page directory and page table entry based on specified structures.
- * this requires the mmu is initialized prior to calls to this function.
- * this (logically) requires that pgd_ent->phy_addr is the page table
- * and pgd_ent->virt_addr == pgtb_ent->virt_addr.
- * 
- * @pgd_ent	page directory entry
- * @pgtb_ent	page table entry
- * @return errno
- **/
-int armv7_mmu_map_pgd_pgtb(struct armv7_mmu_pgd_entry *pgd_ent, struct armv7_mmu_pgtb_entry *pgtb_ent) {
-    addr_t	pgdir	= 0;
-    int		ret	= ERR_SUCC;
-    
-    if (init) {
-	if (pgd_ent != NULL && pgtb_ent != NULL) {
-	    if (pgd_ent->type == ARMV7_MMU_PGD_TABLE) {
-		if (armv7_is_supported_pgtb_type(pgtb_ent->type)) {
-		    if (is_higher_half(pgd_ent->virt_addr, pg_div)) {
-			pgdir = kern_pgd;
-		    } else {
-			pgdir = user_pgd;
-		    }
-		    
-		    if ((ret = create_pgtb_entry(pgd_ent->virt_addr, pgtb_ent)) == ERR_SUCC) {
-			ret = create_pgd_entry(pgdir, pgd_ent);
-			
-			if ((ret == ERR_SUCC) && armv7_is_mmu_enabled()) {
-			    armv7_mmu_update();
-			}
-		    }
-		} else {
-		    ret = ERR_NOTSUPP;
-		}
-	    } else {
-		ret = ERR_INVAL;
-	    }
-	} else {
-	    ret = ERR_INVAL;
-	}
-    } else {
-	ret = ERR_NOTINIT;
-    }
-    
-    return ret;
-}
-
 /**
  * armv7_mmu_map_new_pgtb
  * 
- * creates a page table entry from specified page directory.
- * this requires that a prior page directory entry was created prior to
- * calls to this function.
- * this does not (and must not) effect the current operating state of the mmu
+ * creates a page table entry in specified page table.
+ * this does not (and most not) effect the current operating state of the mmu.
  * 
- * @pgd		address of specified page directory
- * @pgtb_ent	page table entry to create
+ * @pgtb_addr	base address of page table
+ * @pgtb_ent	page table entry to add
  * @return errno
  **/
-int armv7_mmu_map_new_pgtb(addr_t pgd, struct armv7_mmu_pgtb_entry *pgtb_ent) {
+int armv7_mmu_map_new_pgtb(addr_t pgtb_addr, struct armv7_mmu_pgtb_entry *pgtb_ent) {
     int ret = ERR_SUCC;
     
     if (pgtb_ent != NULL) {
 	if (armv7_is_supported_pgtb_type(pgtb_ent->type)) {
-	    struct armv7_mmu_pgd_entry pgd_ent;
-	
-	    if ((ret = get_pgd_entry(pgd, pgtb_ent->virt_addr, &pgd_ent)) == ERR_SUCC) {
-		if (pgd_ent.type == ARMV7_MMU_PGD_TABLE) {
-		    ret = create_pgtb_entry(pgd_ent.phy_addr, pgtb_ent);
-		} else {
-		    ret = ERR_NOTFND;
-		}
-	    } else {
-		ret = ERR_NOTSUPP;
-	    }
+	    ret = create_pgtb_entry(pgtb_addr, pgtb_ent);
+	} else {
+	    ret = ERR_NOTSUPP;
 	}
     } else {
 	ret = ERR_INVAL;

@@ -35,9 +35,6 @@ static void init_kern_pg_dir(addr_t k_phy_pg_dir, addr_t k_phy_start, size_t k_s
 static void init_pg_dir_entry(addr_t *pg_dir, addr_t phy_addr, addr_t virt_addr);
 static void init_enable_mmu(void);
 
-/* various */
-static void move_high_sp(void);
-
 /**
  * vexpress_boot_init
  * 
@@ -62,13 +59,10 @@ void vexpress_boot_init(unsigned int r0, int mach, addr_t atags) {
     }
 	
     /* init/enable mmu */
-    init_user_pg_dir((addr_t)&init_k_pgd);
-    init_kern_pg_dir((addr_t)&init_k_pgd, init_kvm_to_phy((addr_t)&k_start), k_sz);
+    init_user_pg_dir((addr_t)&k_pgd);
+    init_kern_pg_dir((addr_t)&k_pgd, init_kvm_to_phy((addr_t)&k_start), k_sz);
     init_enable_mmu();
 	
-    /* move to vm sp */
-    move_high_sp();
-    
     /* branch to main initialization code */
     vexpress_init(mach, atags);
 }
@@ -159,30 +153,7 @@ static void init_kern_pg_dir(addr_t k_phy_pg_dir, addr_t k_phy_start, size_t k_s
  **/
 static void init_pg_dir_entry(addr_t *pg_dir, addr_t phy_addr, addr_t virt_addr) {
     unsigned int 	entry 	= (phy_addr & PGD_SECT_MASK) | ( ARMV7_MMU_ACC_KRW_URW << 10) | ARMV7_MMU_PGD_SECTION;
-    addr_t 		v_start = (addr_t)&kv_start;
-    int 		index	= 0;
-	
-    if (virt_addr >= v_start) {
-	index = virt_addr >> DIV_MULT_MB; /* this is right */
-	//index = (virt_addr - v_start) >> DIV_MULT_MB;
-    } else {
-	index = virt_addr >> DIV_MULT_MB;
-    }
-	
-    pg_dir[index] = entry;
-    //d_printf("Entry[%i]@0x%x: 0x%x, p: 0x%x,v: 0x%x\n", index, &pg_dir[index], pg_dir[index], phy_addr, virt_addr);
-}
 
-static void move_high_sp(void) {
-    addr_t sp = 0;
-	
-    /* get sp */
-    asm volatile("mov %0, sp" : "=r" (sp));
-	
-    /* get high virt. address */
-    sp = init_phy_to_kvm(sp);
-
-    /* now, assign it back */
-    asm volatile ("mov sp, %0" : : "r" (sp));
+    pg_dir[(virt_addr >> DIV_MULT_MB)] = entry;
 }
 

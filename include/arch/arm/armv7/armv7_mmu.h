@@ -141,10 +141,10 @@ inline bool armv7_is_supported_pgtb_type(armv7_mmu_pgtb_type type) {
     
     switch (type) {
 	case ARMV7_MMU_PGTB_INVALID:
-	case ARMV7_MMU_PGTB_LARGE_PG:
+	case ARMV7_MMU_PGTB_SMALL_PG:
 	    ret = true;
 	    break;
-	case ARMV7_MMU_PGTB_SMALL_PG:
+	case ARMV7_MMU_PGTB_LARGE_PG:
 	    ret = false;
 	    break;
     }
@@ -194,17 +194,16 @@ inline bool armv7_is_mmu_enabled(void) {
 
 /* armv7_mmu.c */
 int armv7_mmu_init_post_enable(void);
+int armv7_mmu_get_pg_div(void);
 
 void armv7_mmu_set_kern_pgd(addr_t pgd_addr, unsigned char flags);
 void armv7_mmu_set_user_pgd(addr_t pgd_addr, unsigned char flags);
 
 int armv7_mmu_map_pgd(struct armv7_mmu_pgd_entry *pgd_ent);
 int armv7_mmu_map_pgtb(struct armv7_mmu_pgtb_entry *pgtb_ent);
-int armv7_mmu_map_pgd_pgtb(struct armv7_mmu_pgd_entry *pgd_ent, struct armv7_mmu_pgtb_entry *pgtb_ent);
 
 int armv7_mmu_map_new_pgd(addr_t pgd_addr, struct armv7_mmu_pgd_entry *pgd_ent);
-int armv7_mmu_map_new_pgtb(addr_t pgd, struct armv7_mmu_pgtb_entry *pgtb_ent);
-int armv7_mmu_map_new_pgd_pgtb(addr_t pgdir, struct armv7_mmu_pgd_entry *pgd_ent, struct armv7_mmu_pgtb_entry *pgtb_ent);
+int armv7_mmu_map_new_pgtb(addr_t pgtb_addr, struct armv7_mmu_pgtb_entry *pgtb_ent);
 
 
 #endif

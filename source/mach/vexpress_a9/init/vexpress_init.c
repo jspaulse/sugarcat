@@ -35,21 +35,55 @@
 #include <stdbool.h>
 
 #define PG_SZ		4096
+#define PGTB_SZ		0x400
+#define PGD_ENTRY_CNT	4096
+#define PGD_ENTRY_SZ	4
+
 #define MB		0x100000
 #define MMU_PGTB_SIZE	0x200000
+#define MMU_KPGD_SIZE	0x4000
+
 #define MASK_MB 	0xFFFFF
 #define DIV_MULT_MB 	20
+#define DIV_MULT_PGTB	10
 #define DIV_MULT_PG	12
+
+/**
+ * init_mmu_entry
+ * 
+ * defines features of initial
+ * mmu entries
+ *
+ * @perm	permissions
+ * @domain	domain
+ * @flags	flags
+ **/
+struct init_mmu_entry {
+    armv7_mmu_acc_perm	perms;
+    unsigned char	domain;
+    unsigned int	flags;
+};
 
 /* used for kinit_warn/info/print */
 static char buf[512];
 
+/* used for initial mappings */
+static struct init_mmu_entry kdef_ent = {
+    .perms	= ARMV7_MMU_ACC_KRW_NOU,
+    .domain	= 0,
+    .flags	= 0
+};
+
+/* temp */
+extern void install_ivt(void);
+
 /* helper functions */
+static void move_high_sp(void);
 static int init_get_mem(addr_t atag_base, struct mm_reg *reg);
 static int init_get_initrd(addr_t atag_base, struct mm_reg *reg);
-int init_map_kern_pgtb(addr_t pg_dir, struct mm_reg *kern_reg);
-addr_t table_walk(addr_t pgd, addr_t virt_addr); /* tmp */
-extern void install_ivt(void); /* tmp */
+static int init_setup_kern_pgtb(struct mm_reg *kern_pgd, struct mm_reg *kern_pgtb, struct init_mmu_entry *ent, int pg_div_n);
+static int init_map_kern_pgtb(struct mm_reg *kern_pgtb, struct mm_reg *map_reg, struct init_mmu_entry *ent, int pg_div_n);
+
 /**
  * vexpress_init
  * 
@@ -62,11 +96,12 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
     size_t		bss_sz		= (size_t)&bss_end - (size_t)&bss_start;
     struct mm_reg	kern_reg	= {init_kvm_to_phy((addr_t)&k_start), ((size_t)&k_end - (size_t)&k_start)};
     struct mm_reg	mmu_pgtb_reg	= {(init_kvm_to_phy((addr_t)&k_end) & ~MASK_MB) + MB, MMU_PGTB_SIZE};
-    //struct mm_reg	k_stack		= {(init_kvm_to_phy((addr_t)&kern_stack)), PG_SZ};
-    //struct mm_reg	mmu_pgd_reg	= {(addr_t)&k_pgd, 0x4000};
+    struct mm_reg	kstack_reg	= {(init_kvm_to_phy((addr_t)&kern_stack)) - PG_SZ, PG_SZ};
+    struct mm_reg	mmu_pgd_reg	= {(addr_t)&k_pgd, MMU_KPGD_SIZE};
     struct mm_reg	initrd_reg	= {0, 0};
     struct mm_reg	mem_reg 	= {0, 0};
     bool		initrd_ex	= false;
+    int			pg_div		= 0;
     int			err		= 0;
 	
     /*
@@ -123,15 +158,42 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
     /* bring up post init mmu */
     if ((err = armv7_mmu_init_post_enable()) != ERR_SUCC) {
 	kinit_panic(buf, "armv7_init_post_enable() failed with %i; somehow we've made it this far without \
-	    enabling the mmu?\n", err);
+	    enabling the mmu?", err);
     }
     
-    /* temporary */
+    /* clean (invalidate) pgtb region */
+    memset((void *)mmu_pgtb_reg.base, 0, mmu_pgtb_reg.size);
+    
+    /* temp */
     install_ivt();
-
-    /* bring up mmu (full fledged) */
-    /* this gives us real virt_to_phy, phy_to_virt */
-	
+    
+    /* grab set pg_div */
+    pg_div = armv7_mmu_get_pg_div();
+    
+    /* map kernel */
+    if ((err = init_map_kern_pgtb(&mmu_pgtb_reg, &kern_reg, &kdef_ent, pg_div)) != ERR_SUCC) {
+	kinit_warn(buf, "init_map_kern_pgtb(kern_reg) failed with %i.", err);
+    }
+    
+    /* map kernel stack */
+    if ((err = init_map_kern_pgtb(&mmu_pgtb_reg, &kstack_reg, &kdef_ent, pg_div)) != ERR_SUCC) {
+	kinit_warn(buf, "init_map_kern_pgtb(kstack_reg) failed with %i.", err);
+    }
+    
+    /* 
+     * ensure that all data is written prior to adding entries
+     * to active, operating mmu
+     */
+    dsb();
+    
+    /* create pgd->pgtb mapping for kernel regions */
+    if ((err = init_setup_kern_pgtb(&mmu_pgd_reg, &mmu_pgtb_reg, &kdef_ent, pg_div)) != ERR_SUCC) {
+	kinit_panic(buf, "init_setup_kern_pgtb() failed with %i; nothing left to do.", err);
+    }
+    
+    /* move sp into kernel memory */
+    move_high_sp();
+    
     /* do preliminary interrupt enabling (?) */
     /* full fledged interrupt enabling (?)	*/
 	
@@ -143,7 +205,6 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
      * or they recv an interrupt 
      */
     
-	
     /* bring cpu's up into holding pen */
     /* set their mmu's to k_pgd
      * (seems like we should've done this 
@@ -210,7 +271,7 @@ static int init_get_mem(addr_t atag_base, struct mm_reg *reg) {
  * returns the initrd memory region (if found)
  * 
  * @atag_base	atag base address
- * @reg			struct to output to
+ * @reg		struct to output to
  * @return errno
  **/
 static int init_get_initrd(addr_t atag_base, struct mm_reg *reg) {
@@ -231,5 +292,139 @@ static int init_get_initrd(addr_t atag_base, struct mm_reg *reg) {
     }
 	
     return ret;
+}
+
+/**
+ * init_setup_kern_pgtb
+ * 
+ * creates the initial pgd->pgtb mapping for the whole kernel region.
+ * this assumes that both kern_pgd & pgtb are continuous and 
+ * kern_pgd->size >= 16KiB (which is required) & kern_pgtb->size >= (pgtb_cnt * PGTB_SIZE).
+ * 
+ * @kern_pgd	kernel page directory region
+ * @kern_pgtb	kernel page table region
+ * @ent		characteristics of entries
+ * @pg_div_n	mmu division
+ * @return errno
+ **/
+static int init_setup_kern_pgtb(struct mm_reg *kern_pgd, struct mm_reg *kern_pgtb, struct init_mmu_entry *ent, int pg_div_n) {
+    addr_t		virt_addr	= 0;
+    unsigned int 	pgtb_cnt	= 0; /* also, pgd_cnt == pgtb_cnt */
+    int			ret		= 0;
+    unsigned int	i		= 0;
+    
+    if (kern_pgd != NULL && kern_pgtb != NULL) {
+	if (pg_div_n > 0) {
+	    pgtb_cnt 	= PGD_ENTRY_CNT - (1 << (32 - (pg_div_n + DIV_MULT_MB)));
+	    virt_addr	= (1 << (32 - pg_div_n));
+	} else {
+	    pgtb_cnt 	= PGD_ENTRY_CNT;
+	    virt_addr	= 0x0;
+	}
+	
+	/* create pgtb_cnt number of entries */
+	while ((i < pgtb_cnt) && (ret == ERR_SUCC)) {
+	    struct armv7_mmu_pgd_entry pgd_ent = {
+		.phy_addr	= kern_pgtb->base | (i << DIV_MULT_PGTB),
+		.virt_addr	= virt_addr | (i << DIV_MULT_MB),
+		.domain		= ent->domain,
+		.type		= ARMV7_MMU_PGD_TABLE,
+		.flags		= ent->flags		/* TODO */
+	    };
+	    
+	    ret = armv7_mmu_map_pgd(&pgd_ent);
+	    i++;
+	    
+	    //mach_init_printf("init_setup_kern_pgtb[%i] pgtb_cnt: %i, p: 0x%x, v: 0x%x\n", (i - 1), pgtb_cnt, pgd_ent.phy_addr, pgd_ent.virt_addr);
+	}
+    } else {
+	ret = ERR_INVAL;
+    }
+    
+    return ret;
+}
+
+/**
+ * init_map_kern_pgtb
+ * 
+ * maps kernel regions into specified kernel page table region.
+ * this should be called prior to init_setup_kern_pgtb
+ * 
+ * @kern_pgtb	continuous physical region used for kernel page tables
+ * @map_reg	region to map
+ * @ent		characteristics of region
+ * @pg_div_n	mmu division
+ * @return errno
+ **/
+static int init_map_kern_pgtb(struct mm_reg *kern_pgtb, struct mm_reg *map_reg, struct init_mmu_entry *ent, int pg_div_n) {
+    addr_t		pg_tb		= 0x0;
+    addr_t		phy_addr	= 0x0;
+    addr_t		virt_addr	= 0x0;
+    unsigned int	pg_cnt		= 0;
+    unsigned int	pgtb_cnt	= 0;	/* number of pgtb in pg div */
+    unsigned int	i		= 0;
+    int 		ret 		= ERR_SUCC;
+    
+    if (kern_pgtb != NULL && map_reg != NULL && ent != NULL) {
+	pg_tb 		= kern_pgtb->base;
+	virt_addr	= init_phy_to_kvm(map_reg->base);
+	phy_addr	= map_reg->base;
+	
+	/* determines index */
+	if (pg_div_n > 0) {
+	    pgtb_cnt 	= PGD_ENTRY_CNT - (1 << (32 - (pg_div_n + DIV_MULT_MB)));
+	} else {
+	    pgtb_cnt 	= PGD_ENTRY_CNT;
+	}
+	
+	/* get pg_cnt */
+	if (!is_power_of_two(map_reg->size)) {
+	    pg_cnt = clr_lv_msb(map_reg->size) >> (DIV_MULT_PG - 1);
+	} else {
+	    pg_cnt = clr_lv_msb(map_reg->size) >> DIV_MULT_PG;
+	}
+	
+	while ((i < pg_cnt) && (ret == ERR_SUCC)) {
+	    int index = pgtb_cnt - ((virt_addr | (i << DIV_MULT_PG)) >> DIV_MULT_MB);
+	    
+	    /* entry */
+	    struct armv7_mmu_pgtb_entry pgtb_ent = {
+		.phy_addr	= phy_addr | (i << DIV_MULT_PG),
+		.virt_addr	= virt_addr | (i << DIV_MULT_PG),
+		.acc_perm	= ent->perms,
+		.type		= ARMV7_MMU_PGTB_SMALL_PG,
+		.flags		= ent->flags			/* TODO */
+	    };
+	    
+	    ret = armv7_mmu_map_new_pgtb((pg_tb | (index << DIV_MULT_PGTB)), &pgtb_ent);
+	    i++;
+	    
+	    mach_init_printf("init_map_kern_pgtb[%i] pg_tb: 0x%x, p: 0x%x, v: 0x%x, index: %i\n", (i - 1), (pg_tb | (index << DIV_MULT_PGTB)), pgtb_ent.phy_addr, pgtb_ent.virt_addr, index);
+	}
+    } else {
+	ret = ERR_INVAL;
+    }
+    
+    return ret;
+}
+
+
+/**
+ * move_high_sp
+ * 
+ * moves the stack pointer into higher, memory mapped
+ * region
+ **/
+static void move_high_sp(void) {
+    addr_t sp = 0;
+	
+    /* get sp */
+    asm volatile("mov %0, sp" : "=r" (sp));
+	
+    /* get high virt. address */
+    sp = init_phy_to_kvm(sp);
+
+    /* now, assign it back */
+    asm volatile ("mov sp, %0" : : "r" (sp));
 }
 
