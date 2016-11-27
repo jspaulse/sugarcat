@@ -24,7 +24,10 @@
 /* dacr */
 #define DACR_DOMAIN_CNT		15
 #define DACR_MASK		0x3
-/* ttbr0 */
+/* ttbcr */
+#define TTBCR_N_MASK		0x7
+/* ttbr */
+#define TTBR_ALIGN 		14
 #define TTBR_MASK		0xFFFFC000
 
 /**
@@ -166,7 +169,7 @@ inline bool armv7_is_supported_pgtb_type(armv7_mmu_pgtb_type type) {
 inline int armv7_set_domain(unsigned char domain, unsigned char acc_perm) {
     unsigned int reg 	= armv7_get_dacr();
     int shift		= domain * 2;
-    int ret 		= ERR_SUCC;
+    int ret 		= ESUCC;
 	
     if (domain <= DACR_DOMAIN_CNT) {
 	reg &= ~(DACR_MASK << shift);
@@ -175,29 +178,39 @@ inline int armv7_set_domain(unsigned char domain, unsigned char acc_perm) {
 	/* write back */
 	armv7_set_dacr(reg);
     } else {
-	ret = ERR_INVAL;
+	ret = EINVAL;
     }
 	
     return ret;
 }
 
 /**
- * armv7_is_mmu_enabled
+ * armv7_mmu_is_enabled
  * 
  * determines if the mmu is enabled
  * 
  * @return true if enabled
  **/
-inline bool armv7_is_mmu_enabled(void) {
+inline bool armv7_mmu_is_enabled(void) {
     return (armv7_get_sctlr() & ARMV7_SCTLR_MMU_ENB);
 }
 
-/* armv7_mmu.c */
-int armv7_mmu_init_post_enable(void);
-int armv7_mmu_get_pg_div(void);
+/**
+ * armv7_mmu_get_pg_div
+ * 
+ * returns the mmu page div
+ * @return pg_div
+ **/
+inline int armv7_mmu_get_pg_div(void) {
+    return (armv7_get_ttbcr() & TTBCR_N_MASK);
+}
 
-void armv7_mmu_set_kern_pgd(addr_t pgd_addr, unsigned char flags);
-void armv7_mmu_set_user_pgd(addr_t pgd_addr, unsigned char flags);
+
+/* armv7_mmu.c */
+addr_t armv7_mmu_get_user_pgd(void);
+addr_t armv7_mmu_get_kern_pgd(void);
+int armv7_mmu_set_kern_pgd(addr_t pgd_addr, unsigned char flags);
+int armv7_mmu_set_user_pgd(addr_t pgd_addr, unsigned char flags);
 
 int armv7_mmu_map_pgd(struct armv7_mmu_pgd_entry *pgd_ent);
 int armv7_mmu_map_pgtb(struct armv7_mmu_pgtb_entry *pgtb_ent);

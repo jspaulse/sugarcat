@@ -1,6 +1,39 @@
-/* do we need these? */
-addr_t armv7_mmu_get_active_kernel_pgd(...);
-addr_t armv7_mmu_get_active_user_pgd(...);
+armv7_mmu.c:
+    We've made some fairly large logical errors:
+	mmu page directories are going to be (for the most part)
+	context dependent (cpu and thread); the kernel page directory may be consistent
+	but i don't think we should rely on "may be."
+	
+	so, with that taken into consideration, it probably doesn't make much sense to
+	keep track of kern_pgd/user_pgd & pg_div.
+	    rewrite armv7_mmu_get_pg_div() as armv7_get_ttbcr(void) & 0x7;
+	
+	instead, for functions that are not map_new, grab the context from the ttbr0/1 functions.
+	this also renders the (init) check obsolete; a more apt check may be is_enabled();
+	
+	since access to this functionality will only be done via the mm interface, we don't need to
+	worry about locking/disabling interrupts.
+	
+/* development flow */
+arch_mmu interface
+physical memory manager (bitmap)
+virtual memory manager
+heap allocator
+spin locks
+mm interface
+
+Interrupts (GIC) relies on vm memory being mapped, so
+
+
+Caching, domain, permission access
+    mmu interface will probably have some sort of simplified permissions
+    & caching for different regions
+    
+    It'll probably be a choice of three flags: USER | KERNEL | DEVICE
+    which define access to the regions:
+	User will be ACC_KRW_URW with cache
+	Kern will be ACC_KRW_UNO(or URO) with cache
+	Device will probably be ACC_KRW_UNO with no cache
 
 Concept idea:
     For heap allocation (I.E., kmalloc, kfree)
@@ -8,15 +41,17 @@ Concept idea:
 	Put the heap at the top of memory
 	    Should we pre allocate N number of virtual addresses?
 	    
-
 Concept idea:
     Wrap arch specific things! As an example, the mmu:
 	mmu.c mmu_map(phy_page, virt_page, (DEVICE|CACHED), (KERNEL|USER))
 	-> arch/armv7/mmu/armv7_arch_mmu.c -> arch_mmu_map(phy_page, virt_page)
 	    -> arch/armv7/mmu/armv7_mmu.c -> armv7_mmu_map_pgtb(struct ...)
     So, anything that ends up being arch. specific will be required to provide an arch interface.
-    
+
 vexpress_init.c
+    Fixup domain access
+    Fixup region access (AP)
+    
     init_mmu_entry
 	flags doesn't make sense
 	    it changes between different entries
@@ -29,16 +64,8 @@ armv7_mmu.c/h
     introduce caching flags and all that jazzery.
     entry type support
 	maybe move that to some sort of configuration?
-    
-    
+	
 Look at enabling all of the necessary caches and all that jazz.
-
-init
-    need to move mmu tables higher and use our kpgd for later
-    
-mmu
-    update is worthless because values will be updated regardless
-    apparently that memory region needs to stay pristine ;D
 
 Concept idea:
 	When mapping phy->vm for i/o, keep track of requested regions (i.e., counter)
@@ -61,60 +88,40 @@ PL110/PL111 Color LCD/HDLCD (software rendering, no GPU)
 	http://forum.osdev.org/viewtopic.php?f=1&t=23990, 
 	http://stackoverflow.com/questions/10070192/arm-programming-pl111-controller-and-printing-characters-on-the-lcd
 	https://github.com/CyberGrandChallenge/linux-source-3.13.11-ckt32-cgc/blob/master/drivers/video/amba-clcd.c
-	
 PL180 MultiMedia Card Interface (MMCI)
 
 kinit/kinit_warn/panic
 	Garbage functions, need better.
 	panic should probably dump more
 
-Gotta get hacky with the ttbr1 address if you want it to work properly
-	Must be aligned at least 0x4000
-		So, if you want to have a 0x2000 sized ttbr1:
-			It must be addressed so that (PG_DIR - 0x2000) is at least 0x4000
-				Mask: ~0x3FFF
-		Therefore, it might be beneficial to keep the pages (kp_base + 0x6000)
-		and set the ttbr1 base to (kp_base + 0x4000)
-
-Fixup domain access
-Use Small Pages when using l1/l2 on kernel.
-
 mm (Memory Manager)
-	Oversees PMM, VMM and heap functions (kmalloc, kfree)
+    Oversees PMM, VMM and heap functions (kmalloc, kfree)
 pmm (Physical Memory Manager):
-	Handles allocation (and book keeping) of physical pages
-		No Access outside of VMM
+    Handles allocation (and book keeping) of physical pages
+	No Access outside of VMM
 vmm (Virtual Memory Manager):
-	Handles allocation of pages & iomapping
-		(Probably no access outside of indirect access via mm)
+    Handles allocation of pages & iomapping
+	(Probably no access outside of indirect access via mm)
 		
 Flow:
-	vexpress_init
-		1:1 map of phy mem in user table (1MB section)
-		map kernel phy region to kernel virtual region
-		branch into kernel init (pass kernel phy info, not ss though)
-		config base will need to evolve to whatever in high mem
-			or, make sure it gets mapped and phy_to_virt() that shiz.
-		pass kernel table too?
-		fix stack higher
-		
-	kernel_init
-		require 1:1 map of phy mem in lower table && kmphy->kmvirt
-		
-		init pmm
-			gets memory region - start & size
-			mark book keeping regions used
-			mark kernel regions used
-		init mmu
-			in our case, requires 2MB continuous (or, 512 pages)
-			map 2MB continuous in mmu
-			do actual kernel mappings
-		init vmm
-			whatever that'll involve
-		init cpu (for reals)
-			allocate pages for various stacks
-		init secondary cpu's
-			allocate pages for various stacks, set mmu ttb1 to kern ttb1
-			
-			
-			
+    vexpress_init
+	branch into kernel init (pass kernel phy info, not ss though)
+	    config base will need to evolve to whatever in high mem
+		or, make sure it gets mapped and phy_to_virt() that shiz.
+
+    kernel_init
+	require 1:1 map of phy mem in lower table && kmphy->kmvirt
+	    init pmm
+		gets memory region - start & size
+		    mark book keeping regions used
+		    mark kernel regions used
+	    init mmu
+		in our case, requires 2MB continuous (or, 512 pages)
+		map 2MB continuous in mmu
+		do actual kernel mappings
+	    init vmm
+		    whatever that'll involve
+	    init cpu (for reals)
+		allocate pages for various stacks
+	    init secondary cpu's
+		allocate pages for various stacks, set mmu ttb1 to kern ttb1

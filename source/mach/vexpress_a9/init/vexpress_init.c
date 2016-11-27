@@ -48,6 +48,8 @@
 #define DIV_MULT_PGTB	10
 #define DIV_MULT_PG	12
 
+typedef int (*irq_test_t)(int, void *);
+
 /**
  * init_mmu_entry
  * 
@@ -84,6 +86,13 @@ static int init_get_initrd(addr_t atag_base, struct mm_reg *reg);
 static int init_setup_kern_pgtb(struct mm_reg *kern_pgd, struct mm_reg *kern_pgtb, struct init_mmu_entry *ent, int pg_div_n);
 static int init_map_kern_pgtb(struct mm_reg *kern_pgtb, struct mm_reg *map_reg, struct init_mmu_entry *ent, int pg_div_n);
 
+int testa(int x, void *ptr) {
+    if (ptr == NULL) {
+	return x + 1;
+    } else {
+	return x + 2;
+    }
+}
 /**
  * vexpress_init
  * 
@@ -113,9 +122,14 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
     */
     
     memset(&bss_start, 0, bss_sz);
+    
+    irq_test_t test = &testa;
+    
+    mach_init_printf("test1: %i\n", test(1, NULL));
+    mach_init_printf("test2: %i\n", test(1, (void *)0x4000));
 
     /* grab the largest continuous region of memory */
-    if ((err = init_get_mem(atag_base, &mem_reg)) != ERR_SUCC) {
+    if ((err = init_get_mem(atag_base, &mem_reg)) != ESUCC) {
 	kinit_panic(buf, "init_get_mem() returned %i, no defined memory regions available.", err);
     } else if (mem_reg.size <= (kern_reg.size + mmu_pgtb_reg.size)) {
 	kinit_panic(buf, "not enough memory in region!  init_get_mem() returned %i bytes \
@@ -155,12 +169,6 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
 	    initrd_base: 0x%x, initrd_size: %i.", mmu_pgtb_reg.base, mmu_pgtb_reg.size, initrd_reg.base, initrd_reg.size);
     }
     
-    /* bring up post init mmu */
-    if ((err = armv7_mmu_init_post_enable()) != ERR_SUCC) {
-	kinit_panic(buf, "armv7_init_post_enable() failed with %i; somehow we've made it this far without \
-	    enabling the mmu?", err);
-    }
-    
     /* clean (invalidate) pgtb region */
     memset((void *)mmu_pgtb_reg.base, 0, mmu_pgtb_reg.size);
     
@@ -171,23 +179,23 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
     pg_div = armv7_mmu_get_pg_div();
     
     /* map kernel */
-    if ((err = init_map_kern_pgtb(&mmu_pgtb_reg, &kern_reg, &kdef_ent, pg_div)) != ERR_SUCC) {
+    if ((err = init_map_kern_pgtb(&mmu_pgtb_reg, &kern_reg, &kdef_ent, pg_div)) != ESUCC) {
 	kinit_warn(buf, "init_map_kern_pgtb(kern_reg) failed with %i.", err);
     }
     
     /* map kernel stack */
-    if ((err = init_map_kern_pgtb(&mmu_pgtb_reg, &kstack_reg, &kdef_ent, pg_div)) != ERR_SUCC) {
+    if ((err = init_map_kern_pgtb(&mmu_pgtb_reg, &kstack_reg, &kdef_ent, pg_div)) != ESUCC) {
 	kinit_warn(buf, "init_map_kern_pgtb(kstack_reg) failed with %i.", err);
     }
     
     /* 
      * ensure that all data is written prior to adding entries
-     * to active, operating mmu
+     * to active, operating mmu.
      */
     dsb();
     
     /* create pgd->pgtb mapping for kernel regions */
-    if ((err = init_setup_kern_pgtb(&mmu_pgd_reg, &mmu_pgtb_reg, &kdef_ent, pg_div)) != ERR_SUCC) {
+    if ((err = init_setup_kern_pgtb(&mmu_pgd_reg, &mmu_pgtb_reg, &kdef_ent, pg_div)) != ESUCC) {
 	kinit_panic(buf, "init_setup_kern_pgtb() failed with %i; nothing left to do.", err);
     }
     
@@ -195,7 +203,7 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
     move_high_sp();
     
     /* do preliminary interrupt enabling (?) */
-    /* full fledged interrupt enabling (?)	*/
+    /* full fledged interrupt enabling (?) */
 	
     /* enable, bring up scu */
     /* allocate stacks for additional cpu's
@@ -235,7 +243,7 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
 static int init_get_mem(addr_t atag_base, struct mm_reg *reg) {
     struct atag		*sch	= NULL;
     struct mm_reg	fnd 	= {0, 0};
-    int 		ret 	= ERR_SUCC;
+    int 		ret 	= ESUCC;
 
     if (reg != NULL) {
 	sch = get_tag(atag_base, ATAG_MEM);
@@ -256,10 +264,10 @@ static int init_get_mem(addr_t atag_base, struct mm_reg *reg) {
 	    memcpy(reg, &fnd, sizeof(struct mm_reg));
 		
 	} else {
-	    ret = ERR_NOTFND;
+	    ret = ENOTFND;
 	}
     } else {
-	ret = ERR_INVAL;
+	ret = EINVAL;
     }
 	
     return ret;
@@ -285,10 +293,10 @@ static int init_get_initrd(addr_t atag_base, struct mm_reg *reg) {
 	    reg->base = sch->u.initrd.start;
 	    reg->size = sch->u.initrd.sz;
 	} else {
-	    ret = ERR_NOTFND;
+	    ret = ENOTFND;
 	}
     } else {
-	ret = ERR_INVAL;
+	ret = EINVAL;
     }
 	
     return ret;
@@ -310,7 +318,7 @@ static int init_get_initrd(addr_t atag_base, struct mm_reg *reg) {
 static int init_setup_kern_pgtb(struct mm_reg *kern_pgd, struct mm_reg *kern_pgtb, struct init_mmu_entry *ent, int pg_div_n) {
     addr_t		virt_addr	= 0;
     unsigned int 	pgtb_cnt	= 0; /* also, pgd_cnt == pgtb_cnt */
-    int			ret		= 0;
+    int			ret		= ESUCC;
     unsigned int	i		= 0;
     
     if (kern_pgd != NULL && kern_pgtb != NULL) {
@@ -323,7 +331,7 @@ static int init_setup_kern_pgtb(struct mm_reg *kern_pgd, struct mm_reg *kern_pgt
 	}
 	
 	/* create pgtb_cnt number of entries */
-	while ((i < pgtb_cnt) && (ret == ERR_SUCC)) {
+	while ((i < pgtb_cnt) && (ret == ESUCC)) {
 	    struct armv7_mmu_pgd_entry pgd_ent = {
 		.phy_addr	= kern_pgtb->base | (i << DIV_MULT_PGTB),
 		.virt_addr	= virt_addr | (i << DIV_MULT_MB),
@@ -334,11 +342,9 @@ static int init_setup_kern_pgtb(struct mm_reg *kern_pgd, struct mm_reg *kern_pgt
 	    
 	    ret = armv7_mmu_map_pgd(&pgd_ent);
 	    i++;
-	    
-	    //mach_init_printf("init_setup_kern_pgtb[%i] pgtb_cnt: %i, p: 0x%x, v: 0x%x\n", (i - 1), pgtb_cnt, pgd_ent.phy_addr, pgd_ent.virt_addr);
 	}
     } else {
-	ret = ERR_INVAL;
+	ret = EINVAL;
     }
     
     return ret;
@@ -363,7 +369,7 @@ static int init_map_kern_pgtb(struct mm_reg *kern_pgtb, struct mm_reg *map_reg, 
     unsigned int	pg_cnt		= 0;
     unsigned int	pgtb_cnt	= 0;	/* number of pgtb in pg div */
     unsigned int	i		= 0;
-    int 		ret 		= ERR_SUCC;
+    int 		ret 		= ESUCC;
     
     if (kern_pgtb != NULL && map_reg != NULL && ent != NULL) {
 	pg_tb 		= kern_pgtb->base;
@@ -384,7 +390,7 @@ static int init_map_kern_pgtb(struct mm_reg *kern_pgtb, struct mm_reg *map_reg, 
 	    pg_cnt = clr_lv_msb(map_reg->size) >> DIV_MULT_PG;
 	}
 	
-	while ((i < pg_cnt) && (ret == ERR_SUCC)) {
+	while ((i < pg_cnt) && (ret == ESUCC)) {
 	    int index = pgtb_cnt - ((virt_addr | (i << DIV_MULT_PG)) >> DIV_MULT_MB);
 	    
 	    /* entry */
@@ -398,11 +404,9 @@ static int init_map_kern_pgtb(struct mm_reg *kern_pgtb, struct mm_reg *map_reg, 
 	    
 	    ret = armv7_mmu_map_new_pgtb((pg_tb | (index << DIV_MULT_PGTB)), &pgtb_ent);
 	    i++;
-	    
-	    mach_init_printf("init_map_kern_pgtb[%i] pg_tb: 0x%x, p: 0x%x, v: 0x%x, index: %i\n", (i - 1), (pg_tb | (index << DIV_MULT_PGTB)), pgtb_ent.phy_addr, pgtb_ent.virt_addr, index);
 	}
     } else {
-	ret = ERR_INVAL;
+	ret = EINVAL;
     }
     
     return ret;

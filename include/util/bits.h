@@ -69,6 +69,10 @@ inline unsigned int clr_lv_lsb(unsigned int x) {
     return ret;
 }
 
+inline bool is_aligned_n(addr_t addr, int n) {
+    return ((addr & (n - 1)) == 0);
+}
+
 inline unsigned int lowest_bit(unsigned int x) {
     return (x & (int)-x);
 }

@@ -19,16 +19,16 @@
  * THE SOFTWARE.
  */
 .extern vexpress_boot_init	/* vexpress_boot_init.c */
-.extern kern_stack			/* kernel.ld */
+.extern kern_stack		/* kernel.ld */
 
 .global _vexpress_boot
 _vexpress_boot:
-	ldr sp, =kern_stack
+    ldr sp, =kern_stack
 	
-	/* branch into C, init */
-	bl vexpress_boot_init
+    /* branch into C, init */
+    bl vexpress_boot_init
 
 /* hang if we ever reach here (we won't) */
 hang:
-	b hang
+    b hang
 

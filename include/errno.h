@@ -1,10 +1,13 @@
 #ifndef ERRNO_H
 #define ERRNO_H
 
-#define ERR_SUCC	0
-#define ERR_INVAL	1
-#define ERR_NOTFND	2
-#define ERR_NOTINIT	3
-#define ERR_NOTSUPP	4
+#define ESUCC		0
+#define EINVAL		1
+#define ENOTFND		2
+#define ENOTINIT	3
+#define ENOTSUPP	4
+#define EALIGN		5
+#define ENOTENB		6
+
 
 #endif

@@ -22,129 +22,106 @@
 #include <arch/arm/armv7/armv7.h>
 #include <arch/arm/armv7/armv7_mmu.h>
 #include <arch/arm/armv7/armv7_syscntl.h>
-#include <mach/mach_init.h>
+#include <util/bits.h>
 #include <types.h>
 #include <errno.h>
 #include <stddef.h>
 #include <stdbool.h>
 
-/* keep track of various things */
-static bool init 	= false;
-static addr_t user_pgd 	= 0, kern_pgd = 0;
-static int pg_div 	= 0;	/* mmu split */
-
-/* various helpful things */
-static unsigned int ttbr0_mask = 0;
-
 /* helper functions */
-static void armv7_mmu_update(void);
-static unsigned int make_ttbr0_mask(int n);
+static void armv7_mmu_update(bool dsb);
 static bool is_higher_half(addr_t virt_addr, int n);
 static int get_pgd_entry(addr_t pgd_addr, addr_t virt_addr, struct armv7_mmu_pgd_entry *out);
 static int create_pgtb_entry(addr_t pgtb_addr, struct armv7_mmu_pgtb_entry *entry);
 static int create_pgd_entry(addr_t pgd_addr, struct armv7_mmu_pgd_entry *entry);
 
 /**
- * armv7_mmu_is_init
+ * armv7_mmu_get_kern_pgd
  * 
- * determines if the mmu has been initialized
- * 
- * @return true if init'd.
+ * returns the current kernel page directory
+ * @return kern pgd
  **/
-bool armv7_mmu_is_init(void) {
-    return init;
+addr_t armv7_mmu_get_kern_pgd(void) {
+    addr_t ret = 0x0;
+    
+    if (armv7_mmu_is_enabled()) {
+	ret = armv7_get_ttbr1() & TTBR_MASK;
+    }
+    
+    return ret;
 }
 
 /**
- * armv7_mmu_get_pg_div
+ * armv7_mmu_get_user_pgd
  * 
- * returns the current page divide of the mmu
- * this requires the mmu have been previously init'd.
- * @return mmu pg_div
+ * returns the current user page directory
+ * @return user pgd
  **/
-int armv7_mmu_get_pg_div(void) {
-    return pg_div;
+addr_t armv7_mmu_get_user_pgd(void) {
+    addr_t 		ret 	= 0x0;
+    int			pg_div	= 0;
+    unsigned int	mask	= 0;
+    
+    if (armv7_mmu_is_enabled()) {
+	pg_div 	= armv7_mmu_get_pg_div();
+	mask 	= ~((1 << (TTBR_ALIGN - pg_div)) - 1);
+	
+	ret = armv7_get_ttbr0() & mask;
+	
+    }
+    
+    return ret;
 }
-
-addr_t armv7_get_kern_pgd(void) {
-    return kern_pgd;
-}
-
 /**
  * armv7_mmu_set_kern_pgd
  * 
- * sets the kernel page directory
+ * sets the kernel page directory.
+ * this requires pgd_addr be aligned (1 << 14)
  * 
- * @pgd_addr	new page directory address
+ * @pgd_addr	page directory
  * @flags	associated flags
+ * @return errno
  **/
-void armv7_mmu_set_kern_pgd(addr_t pgd_addr, unsigned char flags) {
-    kern_pgd = pgd_addr;
-    armv7_set_ttbr1(pgd_addr | flags);
+int armv7_mmu_set_kern_pgd(addr_t pgd_addr, unsigned char flags) {
+    unsigned int	align 	= 1 << TTBR_ALIGN;
+    int			ret	= ESUCC;
     
-    /* update if we're enabled */
-    if (armv7_is_mmu_enabled()) {
-	armv7_mmu_update();
+    if (is_aligned_n(pgd_addr, align)) {
+	armv7_set_ttbr1(pgd_addr | flags);
+	
+	if (armv7_mmu_is_enabled()) {
+	    armv7_mmu_update(false);
+	}
+    } else {
+	ret = EALIGN;
     }
+    
+    return ret;
 }
-
+    
+    
 /**
  * armv7_mmu_set_user_pgd
  * 
- * sets the user page directory
+ * sets the user page directory.
+ * this requires pgd_addr be aligned ((1 << (14 - pg_div)))
  * 
  * @pgd_addr	new page directory address
  * @flags	associated flags
- **/
-void armv7_mmu_set_user_pgd(addr_t pgd_addr, unsigned char flags) {
-    if (pg_div > 0) {
-	ttbr0_mask = make_ttbr0_mask(pg_div);
-    } else {
-	ttbr0_mask	= TTBR_MASK;
-    }
-    
-    user_pgd = pgd_addr & ttbr0_mask;
-    armv7_set_ttbr0(user_pgd | flags);
-    
-    if (armv7_is_mmu_enabled()) {
-	armv7_mmu_update();
-    }
-}
-
-/**
- * armv7_mmu_init_post_enable
- * 
- * called whenever the mmu is enabled prior to init
- * but mmu needs to collect information
- * 
  * @return errno
  **/
-int armv7_mmu_init_post_enable(void) {
-    int ret = ERR_SUCC;
+int armv7_mmu_set_user_pgd(addr_t pgd_addr, unsigned char flags) {
+    unsigned int	align	= 1 << (TTBR_ALIGN - armv7_mmu_get_pg_div());
+    int			ret	= ESUCC;
     
-    /* 
-     * assumption is we're already enabled,
-     * collect various mmu settings
-     */
-    if (armv7_is_mmu_enabled()) {
-	pg_div = armv7_get_ttbcr() & PG_DIV_MASK;
+    if (is_aligned_n(pgd_addr, align)) {
+	armv7_set_ttbr0(pgd_addr | flags);
 	
-	/* we're using more than ttbr0 */
-	if (pg_div > 0) {
-	    ttbr0_mask = make_ttbr0_mask(pg_div);
-	    
-	    /* grab the ttbr0/1 address */
-	    user_pgd = armv7_get_ttbr0() & ttbr0_mask;
-	    kern_pgd = armv7_get_ttbr1() & TTBR_MASK;
-	} else {
-	    ttbr0_mask	= TTBR_MASK;
-	    user_pgd 	= armv7_get_ttbr0() & TTBR_MASK;
+	if (armv7_mmu_is_enabled()) {
+	    armv7_mmu_update(false);
 	}
-	
-	/* keep track of whether or not we are init. */
-	init = true;
     } else {
-	ret = ERR_INVAL;
+	ret = EALIGN;
     }
     
     return ret;
@@ -154,38 +131,41 @@ int armv7_mmu_init_post_enable(void) {
  * armv7_mmu_map_pgd
  * 
  * creates a page directory entry from specified structure.
- * this requires that the mmu is initialized prior to calls
+ * this requires that the mmu is enabled prior to calls
  * to this function.
  * 
  * @pgd_ent	page directory entry
  * @return errno
  **/
 int armv7_mmu_map_pgd(struct armv7_mmu_pgd_entry *pgd_ent) {
-    addr_t	pgdir	= 0;
-    int 	ret 	= ERR_SUCC;
+    addr_t	pgd_addr	= 0x0;
+    int		pg_div		= 0;
+    int 	ret 		= ESUCC;
     
-    if (init) {
-	if (pgd_ent != NULL) {
-	    if (armv7_is_supported_pgd_type(pgd_ent->type)) {
+    if (pgd_ent != NULL) {
+	if (armv7_is_supported_pgd_type(pgd_ent->type)) {
+	    if (armv7_mmu_is_enabled()) {
+		pg_div = armv7_mmu_get_pg_div();
+		
 		if (is_higher_half(pgd_ent->virt_addr, pg_div)) {
-		    pgdir = kern_pgd;
+		    pgd_addr = armv7_mmu_get_kern_pgd();
 		} else {
-		    pgdir = user_pgd;
+		    pgd_addr = armv7_mmu_get_user_pgd();
 		}
-	    
-		ret = create_pgd_entry(pgdir, pgd_ent);
-	    
-		if (armv7_is_mmu_enabled() & (ret == ERR_SUCC)) {
-		    armv7_mmu_update();
+		
+		ret = create_pgd_entry(pgd_addr, pgd_ent);
+		
+		if ((ret == ESUCC)) {
+		    armv7_mmu_update(true);
 		}
 	    } else {
-		ret = ERR_NOTSUPP;
+		ret = ENOTENB;
 	    }
 	} else {
-	    ret = ERR_INVAL;
+	    ret = ENOTSUPP;
 	}
     } else {
-	ret = ERR_NOTINIT;
+	ret = EINVAL;
     }
     
     return ret;
@@ -202,16 +182,16 @@ int armv7_mmu_map_pgd(struct armv7_mmu_pgd_entry *pgd_ent) {
  * @return errno
  **/
 int armv7_mmu_map_new_pgd(addr_t pgd_addr, struct armv7_mmu_pgd_entry *pgd_ent) {
-    int ret = ERR_SUCC;
+    int ret = ESUCC;
     
     if (pgd_ent != NULL) {
 	if (armv7_is_supported_pgd_type(pgd_ent->type)) {
 	    ret = create_pgd_entry(pgd_addr, pgd_ent);
 	} else {
-	    ret = ERR_NOTSUPP;
+	    ret = ENOTSUPP;
 	}
     } else {
-	ret = ERR_INVAL;
+	ret = EINVAL;
     }
     
     return ret;
@@ -223,48 +203,51 @@ int armv7_mmu_map_new_pgd(addr_t pgd_addr, struct armv7_mmu_pgd_entry *pgd_ent) 
  * creates a page table entry.
  * this requires that a page directory entry was created prior to
  * calls to this function.
- * this also requires that the mmu be initialized prior to calls
+ * this also requires that the mmu be enabled prior to calls
  * to this function.
  * 
  * @pgtb_ent	page table entry to create
  * @return errno
  **/
 int armv7_mmu_map_pgtb(struct armv7_mmu_pgtb_entry *pgtb_ent) {
-    addr_t 	pgdir	= 0;
-    int		ret	= ERR_SUCC;
+    addr_t 	pgd_addr	= 0x0;
+    int		pg_div		= 0;
+    int		ret		= ESUCC;
     
-    if (init) {
-	if (pgtb_ent != NULL) {
+    if (pgtb_ent != NULL) {
+	if (armv7_mmu_is_enabled()) {
+	    pg_div = armv7_mmu_get_pg_div();
+	    
 	    if (armv7_is_supported_pgtb_type(pgtb_ent->type)) {
 		struct armv7_mmu_pgd_entry pgd_ent;
 		
-		/* determine pg dir to use */
+		/* determine which page directory to use */
 		if (is_higher_half(pgtb_ent->virt_addr, pg_div)) {
-		    pgdir = kern_pgd;
+		    pgd_addr = armv7_mmu_get_kern_pgd();
 		} else {
-		    pgdir = user_pgd;
+		    pgd_addr = armv7_mmu_get_user_pgd();
 		}
 		
 		/* attempt to get entry */
-		if ((ret = get_pgd_entry(pgdir, pgtb_ent->virt_addr, &pgd_ent)) == ERR_SUCC) {
+		if ((ret = get_pgd_entry(pgd_addr, pgtb_ent->virt_addr, &pgd_ent)) == ESUCC) {
 		    if (pgd_ent.type == ARMV7_MMU_PGD_TABLE) {
 			ret = create_pgtb_entry(pgd_ent.phy_addr, pgtb_ent);
 			
-			if ((ret == ERR_SUCC) && armv7_is_mmu_enabled()) {
-			    armv7_mmu_update();
+			if ((ret == ESUCC)) {
+			    armv7_mmu_update(true);
 			}
 		    } else {
-			ret = ERR_NOTFND;
+			ret = ENOTFND;
 		    }
 		}
 	    } else {
-		ret = ERR_NOTSUPP;
+		ret = ENOTSUPP;
 	    }
 	} else {
-	    ret = ERR_INVAL;
+	    ret = ENOTENB;
 	}
     } else {
-	ret = ERR_NOTINIT;
+	ret = EINVAL;
     }
     
     return ret;
@@ -281,33 +264,16 @@ int armv7_mmu_map_pgtb(struct armv7_mmu_pgtb_entry *pgtb_ent) {
  * @return errno
  **/
 int armv7_mmu_map_new_pgtb(addr_t pgtb_addr, struct armv7_mmu_pgtb_entry *pgtb_ent) {
-    int ret = ERR_SUCC;
+    int ret = ESUCC;
     
     if (pgtb_ent != NULL) {
 	if (armv7_is_supported_pgtb_type(pgtb_ent->type)) {
 	    ret = create_pgtb_entry(pgtb_addr, pgtb_ent);
 	} else {
-	    ret = ERR_NOTSUPP;
+	    ret = ENOTSUPP;
 	}
     } else {
-	ret = ERR_INVAL;
-    }
-    
-    return ret;
-}
-
-/**
- * make_ttbr0_mask
- * 
- * creates and returns the ttbr0 mask based on the pg_div
- * @n	page div
- * @return ttbr0 mask
- **/
-static unsigned int make_ttbr0_mask(int n) {
-    unsigned int ret = 0;
-    
-    for (int i = (14 - n); i < 31; i++) {
-	ret |= (1 << i);
+	ret = EINVAL;
     }
     
     return ret;
@@ -341,13 +307,16 @@ static bool is_higher_half(addr_t virt_addr, int pg_div_n) {
 /**
  * armv7_mmu_update
  * 
- * causes the mmu to update to changes 
+ * causes the mmu to update to changes.
+ * @dsb	determines if a data sync. barrier should be used
  **/
-static void armv7_mmu_update(void) {
-    /* make sure everything is written */
-    dsb();
+static void armv7_mmu_update(bool dsb) {
+    /* if necessary, ensure all data is written
+     * prior to invalidation */
+    if (dsb) {
+	dsb();
+    }
     
-    /* invalidate tlb */
     armv7_invalidate_unified_tlb();
 }
 
@@ -365,7 +334,7 @@ static int create_pgtb_entry(addr_t pgtb_addr, struct armv7_mmu_pgtb_entry *entr
     addr_t		*pg_tb	= (addr_t *)pgtb_addr;
     unsigned int 	index	= 0;
     unsigned int	wr_ent	= 0;
-    int			ret	= ERR_SUCC;
+    int			ret	= ESUCC;
     
     if (entry != NULL) {
 	index 	= (entry->virt_addr >> PGTB_IDX_SHIFT) & PGTB_IDX_MASK;
@@ -379,7 +348,7 @@ static int create_pgtb_entry(addr_t pgtb_addr, struct armv7_mmu_pgtb_entry *entr
 	
 	pg_tb[index] = wr_ent | (entry->acc_perm << PGTB_AP_SHIFT) | entry->flags | entry->type;
     } else {
-	ret = ERR_INVAL;
+	ret = EINVAL;
     }
     
     return ret;
@@ -398,7 +367,7 @@ static int create_pgd_entry(addr_t pgd_addr, struct armv7_mmu_pgd_entry *entry) 
     addr_t 		*pg_dir = (addr_t *)pgd_addr;
     unsigned int	index	= 0;
     unsigned int	wr_ent	= 0;
-    int			ret	= ERR_SUCC;
+    int			ret	= ESUCC;
     
     if (entry != NULL) {
 	index = (entry->virt_addr >> PGD_IDX_SHIFT);
@@ -420,7 +389,7 @@ static int create_pgd_entry(addr_t pgd_addr, struct armv7_mmu_pgd_entry *entry) 
 	
 	pg_dir[index] = wr_ent | (entry->domain << PGD_DOMAIN_SHIFT) | entry->flags | entry->type;
     } else {
-	ret = ERR_INVAL;
+	ret = EINVAL;
     }
     
     return ret;
@@ -466,10 +435,10 @@ static int get_pgd_entry(addr_t pgd_addr, addr_t virt_addr, struct armv7_mmu_pgd
 	    out->flags		= (pg_dir[index] & flg_msk);
 	    out->virt_addr	= virt_addr;
 	} else { /* NOT SUPPORTED */
-	    ret = ERR_NOTFND;
+	    ret = ENOTFND;
 	}
     } else {
-	ret = ERR_INVAL;
+	ret = EINVAL;
     }
     
     return ret;
