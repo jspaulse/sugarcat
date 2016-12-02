@@ -195,8 +195,17 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
 	kinit_panic(buf, "init_setup_kern_pgtb() failed with %i; nothing left to do.", err);
     }
     
+    /* set up domains:
+     * kernel domain does permission checking (client),
+     * user domain does not.
+     **/
+    armv7_set_domain(USER_DOMAIN, ARMV7_DACR_MNGR);
+    armv7_set_domain(KERN_DOMAIN, ARMV7_DACR_CLIENT);
+    
     /* move sp into kernel memory */
     move_high_sp();
+    
+    mach_init_printf("domains bitches!\n");
     
     /* branch into kernel init */
     kernel_init(mach, atag_base, &mmu_pgtb_reg, NULL, 0);

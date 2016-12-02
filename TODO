@@ -46,7 +46,7 @@ vexpress_init.c
     armv7_mmu_set_kern_pgd(..)
 	actually use flags
 
-armv7_mmu.c/h
+armv7_mmu.c/h (armv7_arch_mmu.c)
     introduce caching flags and all that jazzery.
     entry type support
 	maybe move that to some sort of configuration?

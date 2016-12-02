@@ -21,3 +21,18 @@
 #include <arch/arch_mmu.h>
 #include <mm/mmu.h>
 #include <types.h>
+#include <stdbool.h>
+
+// bool arch_mmu_is_enabled()
+
+// int mmu_set_user_page_dir(...)
+// int mmu_map_entry(...)
+// int mmu_map(...) ^
+// int mmu_map_region(vaddr_region, phys_pgs[])
+
+// int mmu_map_new_entry(...)
+// int mmu_map_new(...)^
+// int mmu_map_new_region(...)
+
+/* prototypes */
+

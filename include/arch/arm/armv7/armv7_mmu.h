@@ -21,7 +21,9 @@
 #define PGTB_LG_PG_MASK		0xFFFF0000
 #define PGTB_SM_PG_MASK		0xFFFFF000
 #define PGTB_TYPE_MASK		0x3
-
+/* domains */
+#define USER_DOMAIN		0
+#define KERN_DOMAIN		1
 /* dacr */
 #define DACR_DOMAIN_CNT		15
 #define DACR_MASK		0x3
