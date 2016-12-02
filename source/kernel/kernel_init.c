@@ -18,9 +18,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-
+#include <mach/mach_init.h>
 #include <init/kinit.h>
-#include <mm/mm_init.h>
 #include <linker.h>
 #include <types.h>
 

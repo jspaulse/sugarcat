@@ -2,17 +2,27 @@
 #
 # this is the main source file for the kernel
 
-CFLAGS 		= -I $(INCLUDE) -std=gnu99 -O2 -Wall -Werror -Wextra -Werror -Wshadow \
-			-nostdlib -nostartfiles -ffreestanding \
-			-pedantic -pedantic-errors $(ARCH_CFLAGS)
-AFLAGS		= --warn --fatal-warnings -I $(INCLUDE) $(ARCH_AFLAGS)
+MM = mm/
 
-# why not?
-SRC_FILES		= $(notdir $(wildcard *.c))
-SUB_FILES		= $(patsubst %.s, %.o, $(SRC_FILES))
-OBJ				= $(addprefix $(BUILD), $(patsubst %.c, %.o, $(SUB_FILES)))
+PASS_FLAGS 	= 'ARCH=$(ARCH)' BUILD='$(BUILD)' CFLAGS='$(CFLAGS)' AFLAGS='$(AFLAGS)'
+PASS_FLAGS	+= GNU_TOOLS='$(GNU_TOOLS)' MACH='$(MACH)' CPU='$(CPU)'
+PASS_FLAGS	+= SOURCE='$(SOURCE)'
 
-all: $(OBJ)
+SRC_FILES	= $(notdir $(wildcard *.c)) $(notdir $(wildcard *.s))
+SUB_FILES	= $(patsubst %.s, %.o, $(SRC_FILES))
+OBJ			= $(addprefix $(BUILD), $(patsubst %.c, %.o, $(SUB_FILES)))
+
+all:
+	@$(MAKE) -s curr
+	$(MAKE) -s -C $(MM) $(PASS_FLAGS)
+	#@$(MAKE) -s -C $(BOOT) $(PASS_FLAGS)
+	#@$(MAKE) -s -C $(INIT) $(PASS_FLAGS)
+	
+	# make arch specific
+	#@$(MAKE) -s -C $(ARCH_SOURCE)$(ARCH) $(PASS_FLAGS)
+	#@$(MAKE) -s -C $(CPU_SOURCE)$(CPU) $(PASS_FLAGS)
+
+curr: $(OBJ)
 
 $(BUILD)%.o : %.c
 	@echo "[GCC]		$<"

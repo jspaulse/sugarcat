@@ -19,26 +19,6 @@
  * THE SOFTWARE.
  */
 #include <stdbool.h>
-#include <stdarg.h>
-//#include <mach/mach.h>
 #include <mm/mem.h>
 #include <mm/mmu.h>
-#include <kmap.h>
 
-#define MMU_TTB0			0x10000
-#define MMU_TTB1			0x4000
-
-/* keep me */
-extern unsigned int bss_start, bss_end;
-extern unsigned int k_end;
-
-extern void initsys();
-//extern void d_printf(const char *format, ...);
-
-void entry() {
-	//d_printf("mmu enabled and rearin' to go!\n");
-
-	while(true) {
-		/* do something */
-	}
-}

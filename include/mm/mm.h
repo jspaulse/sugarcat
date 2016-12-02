@@ -18,6 +18,19 @@ struct mm_reg {
 };
 
 /**
+ * struct mm_resv_reg
+ * 
+ * represents a reserved region of memory.
+ * 
+ * @vbase	virtual address of base region
+ * @phy		physical region
+ **/
+struct mm_resv_reg {
+    addr_t		vbase;
+    struct mm_reg	phy;
+};
+
+/**
  * is_within_region
  * 
  * determines if a sub region is within a region

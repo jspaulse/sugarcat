@@ -28,7 +28,6 @@
 #include <init/kinit.h>
 #include <util/atag.h>
 #include <util/bits.h>
-#include <mm/mm_init.h>
 #include <mm/mem.h>
 #include <mm/mm.h>
 #include <linker.h>

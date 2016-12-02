@@ -1,6 +1,6 @@
 #ifndef KINIT_H
 #define KINIT_H
-#include <mm/mm_init.h>
+#include <mm/mm.h>
 #include <mach/mach_init.h>
 #include <util/str.h>
 #include <stdarg.h>
@@ -32,7 +32,18 @@ inline void __kinit_panic(const char *msg, const char *file, const char *func, i
     while(1);
 }
 
-
+/**
+ * kernel_init
+ * 
+ * entry point into the main kernel; this function performs
+ * initializations of all of the elements of the operating system.
+ * 
+ * @mach	machine code provided by bootloader(?)
+ * @atag_base	base address of the atags
+ * @mmu_pgtbs	a reserved region structure representing the page tables region
+ * @resv_regs	an array of other reserved regions (can be null)
+ * @reg_cnt	number of other reserved regions;  if resv_regs is null, reg_cnt should be zero
+ **/
 void kernel_init(unsigned int mach, addr_t atag_base, struct mm_resv_reg *mmu_pgtbs, struct mm_resv_reg *resv_regs, int reg_cnt);
 
 

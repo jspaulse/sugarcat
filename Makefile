@@ -25,10 +25,6 @@ PASS_FLAGS 	= 'ARCH=$(ARCH)' BUILD='$(FBUILD)' CFLAGS='$(CFLAGS)' AFLAGS='$(AFLA
 PASS_FLAGS	+= GNU_TOOLS='$(GNU_TOOLS)' MACH='$(MACH)' CPU='$(CPU)'
 PASS_FLAGS	+= SOURCE='$(SOURCE)'
 
-#PASS_FLAGS	= 'ARCH=$(ARCH)' BUILD='$(FBUILD)' ARCH_AFLAGS='$(ARCH_AFLAGS)'
-#PASS_FLAGS	+= ARCH_CFLAGS='$(ARCH_CFLAGS)' GNU_TOOLS='$(GNU_TOOLS)'
-#PASS_FLAGS	+= INCLUDE='$(INCLUDE)'
-
 # include configurations
 TAR_CFG_DIR = $(CFG_DIR)$@
 -include $(CONFIGS)
@@ -50,7 +46,6 @@ all: $(LINKER) $(CONFIGS)
 base:
 	@$(MAKE) -s -C $(SOURCE)util $(PASS_FLAGS)
 	@$(MAKE) -s -C $(SOURCE)kernel/ $(PASS_FLAGS)
-	#@$(MAKE) -s -C $(SOURCE)kernel/mm/ $(PASS_FLAGS)
 	
 target: B_OBJ = $(wildcard $(BUILD)*.o)
 target: $(TARGET)

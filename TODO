@@ -9,15 +9,6 @@ development flow (short term):
     mm_interface
     cpu_setup
 	secondary_cpu_setup
-	
-arch_mmu interface
-physical memory manager (bitmap)
-virtual memory manager
-heap allocator
-spin locks
-mm interface
-
-
 
 Caching, domain, permission access
     mmu interface will probably have some sort of simplified permissions
