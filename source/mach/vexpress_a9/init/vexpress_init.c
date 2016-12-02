@@ -28,8 +28,8 @@
 #include <init/kinit.h>
 #include <util/atag.h>
 #include <util/bits.h>
-#include <mm/mem.h>
 #include <mm/mm_init.h>
+#include <mm/mem.h>
 #include <mm/mm.h>
 #include <linker.h>
 #include <types.h>
@@ -88,17 +88,18 @@ static int init_map_kern_pgtb(struct mm_reg *kern_pgtb, struct mm_reg *map_reg, 
  * vexpress_init
  * 
  * performs actual initializations of things required by the kernel 
- * and eventually branches into the kernel initialization
+ * and eventually branches into the kernel initialization.
  * 
- * (TODO) describe in light detail what we're doing
+ * this function:
+ * performs sanity checks on the memory regions provided by atags & kernel linker
+ * moves the mmu mappings to page table mappings and maps the kernel & kernel init. regions
+ * branches into the main kernel initialization
  **/
 void vexpress_init(unsigned int mach, addr_t atag_base) {
-    struct mm_resv_reg kstack_reg	= {((addr_t)&k_stack - PG_SZ),
-	{(init_kvm_to_phy((addr_t)&k_stack)) - PG_SZ, PG_SZ}};
     struct mm_resv_reg mmu_pgtb_reg	= {(((addr_t)&k_end & ~MASK_MB) + MB),
 	{((init_kvm_to_phy((addr_t)&k_end) & ~MASK_MB) + MB), MMU_PGTB_SIZE}};
-    struct mm_resv_reg mmu_pgd_reg	= {init_phy_to_kvm((addr_t)&k_pgd),
-	{(addr_t)&k_pgd, MMU_KPGD_SIZE}};
+    struct mm_reg	mmu_pgd_reg	= {(addr_t)&k_pgd, MMU_KPGD_SIZE};
+    struct mm_reg	kstack_reg	= {(init_kvm_to_phy((addr_t)&k_stack)) - PG_SZ, PG_SZ};
     struct mm_reg	kinit_reg	= {init_kvm_to_phy((addr_t)&hmi_start), ((size_t)&hmi_end - (size_t)&hmi_start)};
     struct mm_reg	kern_reg	= {init_kvm_to_phy((addr_t)&k_start), ((size_t)&k_end - (size_t)&k_start)};
     struct mm_reg	initrd_reg	= {0, 0};
@@ -170,7 +171,7 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
     }
     
     /* map kernel stack */
-    if ((err = init_map_kern_pgtb(&mmu_pgtb_reg.phy, &kstack_reg.phy, &kdef_ent)) != ESUCC) {
+    if ((err = init_map_kern_pgtb(&mmu_pgtb_reg.phy, &kstack_reg, &kdef_ent)) != ESUCC) {
 	kinit_warn(buf, "init_map_kern_pgtb(kstack_reg) failed with %i.", err);
     }
     
@@ -180,7 +181,7 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
     }
     
     /* map kernel pgd */
-    if ((err = init_map_kern_pgtb(&mmu_pgtb_reg.phy, &mmu_pgd_reg.phy, &kdef_ent)) != ESUCC) {
+    if ((err = init_map_kern_pgtb(&mmu_pgtb_reg.phy, &mmu_pgd_reg, &kdef_ent)) != ESUCC) {
 	kinit_warn(buf, "init_map_kern_pgtb(mmu_pgd_reg) failed with %i.", err);
     }
     
@@ -191,21 +192,15 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
     dsb();
     
     /* create pgd->pgtb mapping for kernel regions */
-    if ((err = init_setup_kern_pgtb(&mmu_pgd_reg.phy, &mmu_pgtb_reg.phy, &kdef_ent)) != ESUCC) {
+    if ((err = init_setup_kern_pgtb(&mmu_pgd_reg, &mmu_pgtb_reg.phy, &kdef_ent)) != ESUCC) {
 	kinit_panic(buf, "init_setup_kern_pgtb() failed with %i; nothing left to do.", err);
     }
     
     /* move sp into kernel memory */
     move_high_sp();
     
-    /* should expect main kernel init. function to expect these parameters */
-    /* kernel_init(atags, mach, mmu_pgd_reserved, mmu_pgtb_reserved, k_stack_reserved, other_reserved_regs) */
-	
-    if (mach == 0) {
-		
-    }
-    
-    kernel_init();
+    /* branch into kernel init */
+    kernel_init(mach, atag_base, &mmu_pgtb_reg, NULL, 0);
 }
 
 /**

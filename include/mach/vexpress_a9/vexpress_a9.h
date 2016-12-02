@@ -3,10 +3,6 @@
 #include <types.h>
 #include <linker.h>
 
-/** linker.ld **/
-extern addr_t k_stack;	/* kernel stack */
-extern addr_t k_pgd;	/* kernel page dir */
-
 void vexpress_init(unsigned int mach, addr_t atag_base);
 
 /**
@@ -20,10 +16,10 @@ void vexpress_init(unsigned int mach, addr_t atag_base);
  * @return		physical address
  **/
 inline addr_t init_kvm_to_phy(addr_t address) {
-	addr_t kvm = (addr_t)&kv_start;
-	addr_t kpm = (addr_t)&kp_start;
+    addr_t kvm = (addr_t)&kv_start;
+    addr_t kpm = (addr_t)&kp_start;
 	
-	return ((address & ~kvm) | kpm);
+    return ((address & ~kvm) | kpm);
 }
 
 /**
@@ -34,10 +30,10 @@ inline addr_t init_kvm_to_phy(addr_t address) {
  * @return		virtual address
  **/
 inline addr_t init_phy_to_kvm(addr_t address) {
-	addr_t kvm = (addr_t)&kv_start;
-	addr_t kpm = (addr_t)&kp_start;
+    addr_t kvm = (addr_t)&kv_start;
+    addr_t kpm = (addr_t)&kp_start;
 	
-	return ((address & ~kpm) | kvm);
+    return ((address & ~kpm) | kvm);
 }
 
 #endif

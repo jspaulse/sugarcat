@@ -20,10 +20,21 @@
  */
 
 #include <init/kinit.h>
+#include <mm/mm_init.h>
 #include <linker.h>
 #include <types.h>
 
-void kernel_init(void) {
-    mach_init_printf("kernel_init, bitches!");
+void kernel_init(unsigned int mach, addr_t atag_base, struct mm_resv_reg *mmu_pgtbs, struct mm_resv_reg *resv_regs, int reg_cnt) {
+    if (mach) {
+	if (atag_base) {
+	    if (mmu_pgtbs) {
+		if (resv_regs) {
+		    if (reg_cnt) {
+			
+		    }
+		}
+	    }
+	}
+    }
 }
 
