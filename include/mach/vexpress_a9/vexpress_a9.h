@@ -1,14 +1,11 @@
 #ifndef VEXPRESS_A9_H
 #define VEXPRESS_A9_H
 #include <types.h>
+#include <linker.h>
 
-/** kernel.ld **/
-extern addr_t kp_start, kv_start;
-extern addr_t ss_bss_start, ss_bss_end;
-extern addr_t k_start, k_end;
-extern addr_t k_pgd;
-extern addr_t kern_stack;
-extern addr_t bss_start, bss_end;
+/** linker.ld **/
+extern addr_t k_stack;	/* kernel stack */
+extern addr_t k_pgd;	/* kernel page dir */
 
 void vexpress_init(unsigned int mach, addr_t atag_base);
 

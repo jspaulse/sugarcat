@@ -23,6 +23,7 @@
 #include <arch/arm/armv7/armv7_syscntl.h>
 #include <arch/arm/armv7/armv7.h>
 #include <mm/mem.h>
+#include <linker.h>
 #include <types.h>
 #include <stddef.h>
 
@@ -43,11 +44,11 @@ static void init_enable_mmu(void);
  * in vexpress_init
  **/
 void vexpress_boot_init(unsigned int r0, int mach, addr_t atags) {
-    size_t bss_sz 	= (size_t)&ss_bss_end - (size_t)&ss_bss_start;
+    size_t bss_sz 	= (size_t)&lmi_bss_end - (size_t)&lmi_bss_start;
     size_t k_sz		= (size_t)&k_end - (size_t)&k_start;
     
     /* clean bss */
-    memset(&ss_bss_start, 0, bss_sz);
+    memset(&lmi_bss_start, 0, bss_sz);
 	
     /*
      * r0 is supposed to be 0, but not so sure

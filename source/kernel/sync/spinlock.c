@@ -18,17 +18,4 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-.extern vexpress_boot_init	/* vexpress_boot_init.c */
-.extern k_stack			/* kernel.ld */
-
-.global _vexpress_boot
-_vexpress_boot:
-    ldr sp, =k_stack
-	
-    /* branch into C, init */
-    bl vexpress_boot_init
-
-/* hang if we ever reach here (we won't) */
-hang:
-    b hang
-
+#include <sync/spinlock.h>

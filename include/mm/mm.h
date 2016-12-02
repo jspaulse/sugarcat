@@ -13,8 +13,8 @@
  * @sz		size of memory region
  **/
 struct mm_reg {
-	addr_t 	base;
-	size_t	size;
+    addr_t 	base;
+    size_t	size;
 };
 
 /**
@@ -22,25 +22,25 @@ struct mm_reg {
  * 
  * determines if a sub region is within a region
  * 
- * @region		main region
+ * @region	main region
  * @sub_region	sub region
  * @return true if sub region is within main region
  **/
 inline bool is_within_region(struct mm_reg *region, struct mm_reg *sub_region) {
-	bool ret = false;
+    bool ret = false;
 	
-	if (region != NULL && sub_region != NULL) {
-		addr_t sub_end 	= sub_region->base + sub_region->size;
-		addr_t main_end	= region->base + region->size;
+    if (region != NULL && sub_region != NULL) {
+	addr_t sub_end 	= sub_region->base + sub_region->size;
+	addr_t main_end	= region->base + region->size;
 		
-		if (sub_region->base >= region->base) {
-			if (sub_end <= main_end) {
-				ret = true;
-			}
-		}
+	if (sub_region->base >= region->base) {
+	    if (sub_end <= main_end) {
+		ret = true;
+	    }
 	}
+    }
 	
-	return ret;
+    return ret;
 }
 
 /**
@@ -54,20 +54,20 @@ inline bool is_within_region(struct mm_reg *region, struct mm_reg *sub_region) {
  * @return true if overlapping
  **/
 inline bool is_overlapping(struct mm_reg *region, struct mm_reg *sub_region) {
-	bool ret = false;
+    bool ret = false;
 	
-	if (region != NULL && sub_region != NULL) {
-		addr_t main_end = region->base + region->size;
-		addr_t sub_end	= sub_region->base + sub_region->size;
+    if (region != NULL && sub_region != NULL) {
+	addr_t main_end = region->base + region->size;
+	addr_t sub_end	= sub_region->base + sub_region->size;
 		
-		if (is_within_region(region, sub_region)) {
-			if ((sub_end > region->base) && (sub_region->base < main_end)) {
-				ret = true;
-			}
-		}
+	if (is_within_region(region, sub_region)) {
+	    if ((sub_end > region->base) && (sub_region->base < main_end)) {
+		ret = true;
+	    }
 	}
+    }
 	
-	return ret;
+    return ret;
 }
 
 #endif

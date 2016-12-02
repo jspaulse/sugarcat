@@ -15,11 +15,12 @@
 #define PGD_SECT_MASK		0xFFF00000
 #define PGD_TABLE_MASK		0xFFFFFC00
 
+#define PGTB_AP_SHIFT		4
 #define PGTB_IDX_SHIFT		12
 #define PGTB_IDX_MASK		0xFF
 #define PGTB_LG_PG_MASK		0xFFFF0000
 #define PGTB_SM_PG_MASK		0xFFFFF000
-#define PGTB_AP_SHIFT		4
+#define PGTB_TYPE_MASK		0x3
 
 /* dacr */
 #define DACR_DOMAIN_CNT		15
@@ -217,6 +218,8 @@ int armv7_mmu_map_pgtb(struct armv7_mmu_pgtb_entry *pgtb_ent);
 
 int armv7_mmu_map_new_pgd(addr_t pgd_addr, struct armv7_mmu_pgd_entry *pgd_ent);
 int armv7_mmu_map_new_pgtb(addr_t pgtb_addr, struct armv7_mmu_pgtb_entry *pgtb_ent);
+
+addr_t armv7_mmu_virt_to_phy(addr_t virt_addr);
 
 
 #endif

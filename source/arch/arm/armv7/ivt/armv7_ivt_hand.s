@@ -29,7 +29,7 @@
 
 .global armv7_irq_hand
 armv7_irq_hand:
-	ldr sp, =kern_stack
+	ldr sp, =k_stack
 	add sp, sp, #0x2000
 	
 	push {r0-r3}
@@ -44,7 +44,7 @@ armv7_irq_hand:
 
 .global armv7_undef_hand
 armv7_undef_hand:
-	ldr sp, =kern_stack
+	ldr sp, =k_stack
 	add sp, sp, #0x3000
 	
 	push {r0-r3}
@@ -63,7 +63,7 @@ armv7_undef_hand:
 
 .global armv7_dat_abt_hand
 armv7_dat_abt_hand:
-	ldr sp, =kern_stack
+	ldr sp, =k_stack
 	add sp, sp, #0x3000
 	
 	push {r0-r3}
@@ -80,7 +80,7 @@ armv7_dat_abt_hand:
 
 .global armv7_pref_abt_hand
 armv7_pref_abt_hand:
-	ldr sp, =kern_stack
+	ldr sp, =k_stack
 	add sp, sp, #0x3000
 	
 	push {r0-r3}

@@ -18,14 +18,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#include <mach/mach_init.h>	/* tmp */
 #include <arch/arm/armv7/armv7.h>
 #include <arch/arm/armv7/armv7_mmu.h>
 #include <arch/arm/armv7/armv7_syscntl.h>
 #include <util/bits.h>
 #include <types.h>
 #include <errno.h>
-#include <stddef.h>
 #include <stdbool.h>
 
 /* helper functions */
@@ -34,6 +32,56 @@ static bool is_higher_half(addr_t virt_addr, int n);
 static int get_pgd_entry(addr_t pgd_addr, addr_t virt_addr, struct armv7_mmu_pgd_entry *out);
 static int create_pgtb_entry(addr_t pgtb_addr, struct armv7_mmu_pgtb_entry *entry);
 static int create_pgd_entry(addr_t pgd_addr, struct armv7_mmu_pgd_entry *entry);
+
+/**
+ * armv7_mmu_virt_to_phy
+ * 
+ * returns the physical address associated with a virtual address.
+ * if the virtual address isn't mapped to a physical address, returns 0.
+ * 
+ * @virt_addr	virtual address
+ * @return physical address
+ **/
+addr_t armv7_mmu_virt_to_phy(addr_t virt_addr) {
+    unsigned int	index	= 0;
+    unsigned char	type	= 0;
+    addr_t 		ret 	= 0x0;
+    addr_t 		*pg_dir	= NULL;
+    
+    if (armv7_mmu_is_enabled()) {
+	index = virt_addr >> PGD_IDX_SHIFT;
+	
+	if (is_higher_half(virt_addr, armv7_mmu_get_pg_div())) {
+	    pg_dir = (addr_t *)armv7_mmu_get_kern_pgd();
+	} else {
+	    pg_dir = (addr_t *)armv7_mmu_get_user_pgd();
+	}
+	
+	/* grab entry type */
+	type = (pg_dir[index] & PGD_TYPE_MASK);
+	
+	/* determine entry type; get phy addr based on that */
+	if (type == ARMV7_MMU_PGD_SECTION) {
+	    ret = ((pg_dir[index] & PGD_SECT_MASK) | (virt_addr & ~PGD_SECT_MASK));
+	} else if (type == ARMV7_MMU_PGD_TABLE) {
+	    addr_t *pg_tb = (addr_t *)(pg_dir[index] & PGD_TABLE_MASK);
+	    
+	    /* table index */
+	    index 	= (virt_addr >> PGTB_IDX_SHIFT) & PGTB_IDX_MASK;
+	    type	= pg_tb[index] & PGTB_TYPE_MASK;
+	    
+	    if (type == ARMV7_MMU_PGTB_LARGE_PG) {
+		ret = ((pg_tb[index] & PGTB_LG_PG_MASK) | (virt_addr & ~PGTB_LG_PG_MASK));
+	    } else if (type == ARMV7_MMU_PGTB_SMALL_PG) {
+		ret = ((pg_tb[index] & PGTB_SM_PG_MASK) | (virt_addr & ~PGTB_SM_PG_MASK));
+	    }
+	}
+    } else {
+	ret = virt_addr;
+    }
+    
+    return ret;
+}
 
 /**
  * armv7_mmu_get_kern_pgd
@@ -72,6 +120,7 @@ addr_t armv7_mmu_get_user_pgd(void) {
     
     return ret;
 }
+
 /**
  * armv7_mmu_set_kern_pgd
  * 
@@ -98,7 +147,6 @@ int armv7_mmu_set_kern_pgd(addr_t pgd_addr, unsigned char flags) {
     
     return ret;
 }
-    
     
 /**
  * armv7_mmu_set_user_pgd
@@ -443,5 +491,3 @@ static int get_pgd_entry(addr_t pgd_addr, addr_t virt_addr, struct armv7_mmu_pgd
     
     return ret;
 }
-    
-    

@@ -1,20 +1,15 @@
-armv7_mmu.c:
-    We've made some fairly large logical errors:
-	mmu page directories are going to be (for the most part)
-	context dependent (cpu and thread); the kernel page directory may be consistent
-	but i don't think we should rely on "may be."
+development flow (short term):
+    spinlocks
+    memory management:
+	mmu
+	    arch_mmu_interface
+	vmm
+	pmm
+	heap
+    mm_interface
+    cpu_setup
+	secondary_cpu_setup
 	
-	so, with that taken into consideration, it probably doesn't make much sense to
-	keep track of kern_pgd/user_pgd & pg_div.
-	    rewrite armv7_mmu_get_pg_div() as armv7_get_ttbcr(void) & 0x7;
-	
-	instead, for functions that are not map_new, grab the context from the ttbr0/1 functions.
-	this also renders the (init) check obsolete; a more apt check may be is_enabled();
-	
-	since access to this functionality will only be done via the mm interface, we don't need to
-	worry about locking/disabling interrupts.
-	
-/* development flow */
 arch_mmu interface
 physical memory manager (bitmap)
 virtual memory manager
@@ -22,7 +17,6 @@ heap allocator
 spin locks
 mm interface
 
-Interrupts (GIC) relies on vm memory being mapped, so
 
 
 Caching, domain, permission access
@@ -49,6 +43,7 @@ Concept idea:
     So, anything that ends up being arch. specific will be required to provide an arch interface.
 
 vexpress_init.c
+    install_ivt()	- remove
     Fixup domain access
     Fixup region access (AP)
     

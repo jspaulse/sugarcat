@@ -529,3 +529,26 @@ pref_abt_hand:
 	
 	/* returns after */
 	movs pc, lr
+	
+bool testb(addr_t *addr) {
+    bool ret = false;
+    
+    //mach_init_printf("test: 0x%x\n", __sync_add_and_fetch(addr, 1));
+    mach_init_printf("test: 0x%x\n", __sync_lock_test_and_set(addr, 1));
+    
+    __sync_lock_release(addr, 4);
+    return ret;
+}
+
+
+typedef int (*irq_test_t)(int, void *);
+int testa(int x, void *ptr) {
+    if (ptr == NULL) {
+	return x + 1;
+    } else {
+	return x + 2;
+    }
+}
+
+irq_test_t test = &testa;
+    
