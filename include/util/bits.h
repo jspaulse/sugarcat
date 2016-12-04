@@ -1,6 +1,8 @@
 #ifndef BITS_H
 #define BITS_H
+#include <stdint.h>
 #include <stdbool.h>
+
 /**
  * idx_lsb
  * Index Least Significant Bit
@@ -69,30 +71,76 @@ inline unsigned int clr_lv_lsb(unsigned int x) {
     return ret;
 }
 
-inline bool is_aligned_n(addr_t addr, int n) {
+/**
+ * is_aligned_n
+ * 
+ * determines if an address is aligned to n alignment
+ * 
+ * @addr	address to determine alignment
+ * @n		alignment; i.e.,
+ * 		if checking for 16KiB alignment, n == 0x4000 (16384)
+ * @return true if aligned n
+ **/
+inline bool is_aligned_n(addr_t addr, unsigned int n) {
     return ((addr & (n - 1)) == 0);
 }
 
-inline unsigned int lowest_bit(unsigned int x) {
-    return (x & (int)-x);
-}
-
-inline unsigned int highest_bit(unsigned int x) {
-    x |= (x >> 1);
-    x |= (x >> 2);
-    x |= (x >> 4);
-    x |= (x >> 8);
-    x |= (x >> 16);
-	
-    return x - (x >> 1);
-}
-
+/**
+ * is_power_of_two
+ * 
+ * determines if x is power of two
+ * @x	x
+ * @return true if power of two
+ **/
 inline bool is_power_of_two(unsigned int x) {
     return ((x != 0) && !(x & (x - 1)));
 }
 
-inline int loc_lowest_bit(unsigned int x) {
-    return __builtin_ffs(x) - 1;
+/**
+ * be16_to_le16
+ * 
+ * converts a big-endian 16 bit unsigned integer to little-endian
+ * @x	unsigned integer to convert
+ * @return little-endian integer
+ **/
+inline uint16_t be16_to_le16(uint16_t x) {
+    return ((x >> 8) | (x << 8));
+}
+
+/**
+ * be32_to_le32
+ * 
+ * converts a big-endian 32 bit unsigned integer to little-endian
+ * @x	unsigned integer to convert
+ * @return little-endian integer
+ **/
+inline uint32_t be32_to_le32(uint32_t x) {
+    uint32_t ret = (((x & 0xFF) << 24) 	| 	/* 0 > 3 */
+	((x & 0xFF00) << 8) 		| 	/* 1 > 2 */
+	((x & 0xFF0000) >> 8) 		| 	/* 2 > 1 */
+	((x & 0xFF000000) >> 24)); 		/* 3 > 0 */
+    
+    return ret;
+}
+
+/**
+ * be64_to_le64
+ * 
+ * converts a big-endian 64 bit unsigned integer to little-endian
+ * @x	unsigned integer to convert
+ * @return little-endian integer
+ **/
+inline uint64_t be64_to_le64(uint64_t x) {
+    uint64_t ret = (((x & 0xFF) << 56) 	|	/* 0 > 7 */
+	((x & 0xFF00) << 40)		|	/* 1 > 6 */
+	((x & 0xFF0000) << 24)		|	/* 2 > 5 */
+	((x & 0xFF000000) << 8)		|	/* 3 > 4 */
+	((x & 0xFF00000000) >> 8)	|	/* 4 > 3 */
+	((x & 0xFF0000000000) >> 24)	|	/* 5 > 2 */
+	((x & 0xFF000000000000) >> 40)	|	/* 6 > 1 */
+	((x >> 56) & 0xFF));			/* 7 > 0 */
+    
+    return ret;
 }
 
 #endif
