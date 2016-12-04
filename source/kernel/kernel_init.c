@@ -24,9 +24,9 @@
 #include <linker.h>
 #include <types.h>
 
-void kernel_init(unsigned int mach, addr_t atag_base, struct mm_resv_reg *mmu_pgtbs, struct mm_resv_reg *resv_regs, int reg_cnt) {
+void kernel_init(unsigned int mach, addr_t atag_dt_base, struct mm_resv_reg *mmu_pgtbs, struct mm_resv_reg *resv_regs, int reg_cnt) {
     if (mach) {
-	if (atag_base) {
+	if (atag_dt_base) {
 	    if (mmu_pgtbs) {
 		if (resv_regs) {
 		    if (reg_cnt) {
@@ -36,7 +36,5 @@ void kernel_init(unsigned int mach, addr_t atag_base, struct mm_resv_reg *mmu_pg
 	    }
 	}
     }
-    
-    mach_init_printf("pgtb_sz: 0x%x\n", arch_mmu_get_user_pgtb_reg_sz());
 }
 
