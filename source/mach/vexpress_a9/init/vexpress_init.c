@@ -36,8 +36,6 @@
 #include <stdbool.h>
 
 #define PG_SZ		4096
-#define PGTB_SZ		0x400
-#define PGD_ENTRY_CNT	4096
 #define PGD_ENTRY_SZ	4
 
 #define MB		0x100000
@@ -195,6 +193,9 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
 	kinit_panic(buf, "init_setup_kern_pgtb() failed with %i; nothing left to do.", err);
     }
     
+    /* invalidate tlb */
+   armv7_invalidate_unified_tlb();
+    
     /* set up domains:
      * kernel domain does permission checking (client),
      * user domain does not.
@@ -204,8 +205,6 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
     
     /* move sp into kernel memory */
     move_high_sp();
-    
-    mach_init_printf("domains bitches!\n");
     
     /* branch into kernel init */
     kernel_init(mach, atag_base, &mmu_pgtb_reg, NULL, 0);

@@ -9,17 +9,6 @@ development flow (short term):
     mm_interface
     cpu_setup
 	secondary_cpu_setup
-
-Caching, domain, permission access
-    mmu interface will probably have some sort of simplified permissions
-    & caching for different regions
-    
-    It'll probably be a choice of three flags: USER | KERNEL | DEVICE
-    which define access to the regions:
-	User will be ACC_KRW_URW with cache
-	Kern will be ACC_KRW_UNO(or URO) with cache
-	Device will probably be ACC_KRW_UNO with no cache
-
 Concept idea:
     For heap allocation (I.E., kmalloc, kfree)
 	Have the heap descend downwards

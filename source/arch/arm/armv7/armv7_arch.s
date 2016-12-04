@@ -18,25 +18,13 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#include <arch/arch_mmu.h>	/* TMP! */
-#include <mach/mach_init.h>
-#include <init/kinit.h>
-#include <linker.h>
-#include <types.h>
 
-void kernel_init(unsigned int mach, addr_t atag_base, struct mm_resv_reg *mmu_pgtbs, struct mm_resv_reg *resv_regs, int reg_cnt) {
-    if (mach) {
-	if (atag_base) {
-	    if (mmu_pgtbs) {
-		if (resv_regs) {
-		    if (reg_cnt) {
-			
-		    }
-		}
-	    }
-	}
-    }
-    
-    mach_init_printf("pgtb_sz: 0x%x\n", arch_mmu_get_user_pgtb_reg_sz());
-}
+.global arch_dsb
+arch_dsb:
+    dsb
+    bx lr
 
+.global arch_dmb
+arch_dmb:
+    dmb
+    bx lr

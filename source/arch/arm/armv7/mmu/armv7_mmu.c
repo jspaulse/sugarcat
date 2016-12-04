@@ -181,6 +181,9 @@ int armv7_mmu_set_user_pgd(addr_t pgd_addr, unsigned char flags) {
  * creates a page directory entry from specified structure.
  * this requires that the mmu is enabled prior to calls
  * to this function.
+ * it should be noted that callers of this function
+ * are required to use any necessary memory barriers
+ * and invalidate tlbs.
  * 
  * @pgd_ent	page directory entry
  * @return errno
@@ -202,10 +205,6 @@ int armv7_mmu_map_pgd(struct armv7_mmu_pgd_entry *pgd_ent) {
 		}
 		
 		ret = create_pgd_entry(pgd_addr, pgd_ent);
-		
-		if ((ret == ESUCC)) {
-		    armv7_mmu_update(true);
-		}
 	    } else {
 		ret = ENOTENB;
 	    }
@@ -251,8 +250,11 @@ int armv7_mmu_map_new_pgd(addr_t pgd_addr, struct armv7_mmu_pgd_entry *pgd_ent) 
  * creates a page table entry.
  * this requires that a page directory entry was created prior to
  * calls to this function.
- * this also requires that the mmu be enabled prior to calls
+ * this requires that the mmu be enabled prior to calls
  * to this function.
+ * it should be noted that callers of this function
+ * are required to use any necessary memory barriers
+ * and invalidate tlbs.
  * 
  * @pgtb_ent	page table entry to create
  * @return errno
@@ -280,10 +282,6 @@ int armv7_mmu_map_pgtb(struct armv7_mmu_pgtb_entry *pgtb_ent) {
 		if ((ret = get_pgd_entry(pgd_addr, pgtb_ent->virt_addr, &pgd_ent)) == ESUCC) {
 		    if (pgd_ent.type == ARMV7_MMU_PGD_TABLE) {
 			ret = create_pgtb_entry(pgd_ent.phy_addr, pgtb_ent);
-			
-			if ((ret == ESUCC)) {
-			    armv7_mmu_update(true);
-			}
 		    } else {
 			ret = ENOTFND;
 		    }

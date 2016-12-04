@@ -27,8 +27,8 @@
 #include <types.h>
 #include <stddef.h>
 
-#define PGD_ENTRY_CNT	2048
-#define DIV_MULT_MB	20
+#define KERN_PGD_ENTRY_CNT	2048
+#define DIV_MULT_MB		20
 
 /* init_mmu functions */
 static void init_user_pg_dir(addr_t u_phy_pg_dir);
@@ -106,7 +106,7 @@ static void init_user_pg_dir(addr_t u_phy_pg_dir) {
 
 	
     /* map all in 2GiB range */
-    for (int i = 0; i < PGD_ENTRY_CNT; i++) {
+    for (int i = 0; i < KERN_PGD_ENTRY_CNT; i++) {
 	addr_t pv_addr = (i << DIV_MULT_MB);
 		
 	/* map 1:1 */

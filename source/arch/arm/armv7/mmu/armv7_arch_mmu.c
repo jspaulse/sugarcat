@@ -20,12 +20,16 @@
  * 
  * armv7_arch_mmu.c provides the arch_mmu_interface.
  */
+#include <arch/arm/armv7/armv7_syscntl.h>
 #include <arch/arm/armv7/armv7_mmu.h>
 #include <arch/arch_mmu.h>
 #include <mm/mmu.h>
 #include <stdbool.h>
 
 static armv7_mmu_acc_perm arch_mmu_acc_to_armv7(mmu_acc_flags_t flags);
+static armv7_mmu_pgd_type arch_mmu_pgd_type_to_armv7(mmu_entry_type_t type);
+static armv7_mmu_pgtb_type arch_mmu_pgtb_type_to_armv7(mmu_entry_type_t type);
+static unsigned char arch_mmu_acc_to_domain(mmu_acc_flags_t flags);
 
 bool arch_mmu_is_enabled(void) {
     return armv7_mmu_is_enabled();
@@ -39,35 +43,125 @@ int arch_mmu_set_user_pg_dir(addr_t page_dir) {
     return armv7_mmu_set_user_pgd(page_dir, 0x0);
 }
 
-int arch_mmu_create_pgtb_entry(struct mmu_entry *entry) {
-    struct armv7_mmu_pgtb_entry armv7_entry = {
-	.phy_addr	= entry->phy_addr,
-	.virt_addr	= entry->virt_addr,
-	.acc_perm	= arch_mmu_acc_to_armv7(entry->acc_flags),
-	.type		= ARMV7_MMU_PGTB_SMALL_PG,
-	.flags		= 0x0	/* TODO */
-    };
+int arch_mmu_create_entry(struct mmu_entry *entry) {
+    struct armv7_mmu_pgd_entry 	armv7_pgd_entry;
+    struct armv7_mmu_pgtb_entry armv7_pgtb_entry;
+    int				ret	= 0;
     
-    return armv7_mmu_map_pgtb(&armv7_entry);
-}
-
-int arch_mmu_create_pgd_entry(struct mmu_entry *entry) {
-    struct armv7_mmu_pgd_entry 	armv7_entry = {
-	.phy_addr	= entry->phy_addr,
-	.virt_addr	= entry->virt_addr,
-	.acc_perm	= arch_mmu_acc_to_armv7(entry->acc_flags),
-	.type		= ARMV7_MMU_PGD_TABLE,
-	.flags		= 0x0	/* TODO */
-    };
-    
-    /* determine domain */
-    if (entry->acc_flags == USER || entry->acc_flags == KERN_USER) {
-	armv7_entry.domain = USER_DOMAIN;
-    } else {
-	armv7_entry.domain = KERN_DOMAIN;
+    /* create based on type */
+    switch (entry->type) {
+	case PG_DIR_INVAL:
+	case PG_DIR:
+	    armv7_pgd_entry.phy_addr	= entry->phy_addr;
+	    armv7_pgd_entry.virt_addr	= entry->virt_addr;
+	    armv7_pgd_entry.domain	= arch_mmu_acc_to_domain(entry->acc_flags);
+	    armv7_pgd_entry.type	= arch_mmu_pgd_type_to_armv7(entry->type);
+	    armv7_pgd_entry.flags	= 0x0;	/* TODO */
+	    
+	    ret = armv7_mmu_map_pgd(&armv7_pgd_entry);
+	    break;
+	case PG_TAB_INVAL:
+	case PG_TAB:
+	    armv7_pgtb_entry.phy_addr	= entry->phy_addr;
+	    armv7_pgtb_entry.virt_addr	= entry->virt_addr;
+	    armv7_pgtb_entry.acc_perm	= arch_mmu_acc_to_armv7(entry->acc_flags);
+	    armv7_pgtb_entry.type	= arch_mmu_pgtb_type_to_armv7(entry->type);
+	    
+	    ret = armv7_mmu_map_pgtb(&armv7_pgtb_entry);
+	    break;
     }
     
-    return armv7_mmu_map_pgd(&armv7_entry);
+    return ret;
+}
+
+int arch_mmu_create_new_entry(addr_t pg_base, struct mmu_entry *entry) {
+    struct armv7_mmu_pgd_entry 	armv7_pgd_entry;
+    struct armv7_mmu_pgtb_entry armv7_pgtb_entry;
+    int				ret	= 0;
+    
+    /* create based on type */
+    switch (entry->type) {
+	case PG_DIR_INVAL:
+	case PG_DIR:
+	    armv7_pgd_entry.phy_addr	= entry->phy_addr;
+	    armv7_pgd_entry.virt_addr	= entry->virt_addr;
+	    armv7_pgd_entry.domain	= arch_mmu_acc_to_domain(entry->acc_flags);
+	    armv7_pgd_entry.type	= arch_mmu_pgd_type_to_armv7(entry->type);
+	    armv7_pgd_entry.flags	= 0x0;	/* TODO */
+	    
+	    ret = armv7_mmu_map_new_pgd(pg_base, &armv7_pgd_entry);
+	    break;
+	case PG_TAB_INVAL:
+	case PG_TAB:
+	    armv7_pgtb_entry.phy_addr	= entry->phy_addr;
+	    armv7_pgtb_entry.virt_addr	= entry->virt_addr;
+	    armv7_pgtb_entry.acc_perm	= arch_mmu_acc_to_armv7(entry->acc_flags);
+	    armv7_pgtb_entry.type	= arch_mmu_pgtb_type_to_armv7(entry->type);
+	    
+	    ret = armv7_mmu_map_new_pgtb(pg_base, &armv7_pgtb_entry);
+	    break;
+    }
+    
+    return ret;
+}
+
+extern void mach_init_printf(const char *, ...);
+
+size_t arch_mmu_get_user_pgtb_reg_sz(void) {
+    int		pg_div	= armv7_mmu_get_pg_div();
+    size_t	ret	= 0;	
+    
+    if (pg_div > 0) {
+	ret = (1 << (32 - (pg_div + PGD_IDX_SHIFT))) * PGTB_SZ;
+    } else {
+	ret = PGD_ENTRY_CNT * PGTB_SZ;
+    }
+    
+    return ret;
+}
+
+addr_t arch_mmu_get_kern_vaddr(void) {
+    int		pg_div	= armv7_mmu_get_pg_div();
+    addr_t 	ret 	= 0x0;
+    
+    if (pg_div > 0) {
+	ret = (1 << (32 - pg_div));
+    } else {
+	ret = 0x0;
+    }
+    
+    return ret;
+}
+
+extern addr_t arch_mmu_get_kern_vaddr(void);
+
+void arch_mmu_invalidate(void) {
+    armv7_invalidate_unified_tlb();
+}
+
+/**
+ * arch_mmu_acc_to_domain
+ * 
+ * translates mmu access flags to domain
+ * @flags	mmu access flags
+ * @return domain
+ **/
+static unsigned char arch_mmu_acc_to_domain(mmu_acc_flags_t flags) {
+    unsigned char ret = 0;
+    
+    switch (flags) {
+	case USER:
+	case KERN_USER:
+	    ret = USER_DOMAIN;
+	    break;
+	case KERNEL_RO:
+	case KERNEL:
+	case DEVICE:
+	    ret = KERN_DOMAIN;
+	    break;
+    }
+    
+    return ret;
 }
 
 /**
@@ -100,6 +194,69 @@ static armv7_mmu_acc_perm arch_mmu_acc_to_armv7(mmu_acc_flags_t flags) {
     
     return ret;
 }
+
+/**
+ * arch_mmu_pgtb_type_to_armv7
+ * 
+ * translates between mmu & armv7 pgtb entry types
+ * @type	mmu entry type
+ * @return armv7 pgtb entry type
+ **/
+static armv7_mmu_pgtb_type arch_mmu_pgtb_type_to_armv7(mmu_entry_type_t type) {
+    armv7_mmu_pgtb_type ret;
+    
+    switch (type) {
+	case PG_TAB_INVAL:
+	    ret = ARMV7_MMU_PGTB_INVALID;
+	    break;
+	case PG_TAB:
+	    ret = ARMV7_MMU_PGTB_SMALL_PG;
+	    break;
+	case PG_DIR_INVAL:
+	case PG_DIR:
+	    ret = ARMV7_MMU_PGTB_INVALID;
+	    break;
+    }
+    
+    return ret;
+}
+
+/**
+ * arch_mmu_pgd_type_to_armv7
+ * 
+ * translates between mmu & armv7 pgd entry types
+ * @type	mmu entry type
+ * @return armv7 pgd entry type
+ **/
+static armv7_mmu_pgd_type arch_mmu_pgd_type_to_armv7(mmu_entry_type_t type) {
+    armv7_mmu_pgd_type ret;
+    
+    switch (type) {
+	case PG_DIR_INVAL:
+	    ret = ARMV7_MMU_PGD_INVALID;
+	    break;
+	case PG_DIR:
+	    ret = ARMV7_MMU_PGD_TABLE;
+	    break;
+	case PG_TAB_INVAL:
+	case PG_TAB:
+	    ret = ARMV7_MMU_PGD_INVALID;
+	    break;
+    }
+    
+    return ret;
+}
+
+/**
+ * arch_mmu_get_pgtb_reg_sz
+ * 
+ * returns the space required (in bytes) for creating
+ * a continuous region of page tables required for mapping
+ * user space.
+ * @return space required (in bytes) for page tables required to map
+ * user address space.
+ **/
+extern size_t arch_mmu_get_user_pgtb_reg_sz(void);
 
 /*
 addr_t armv7_mmu_get_user_pgd(void);
