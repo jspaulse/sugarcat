@@ -141,19 +141,22 @@ inline bool tag_exists(addr_t atag_base, unsigned int tag) {
 }
 
 /**
- * is_tag_list_sane
+ * using_atag
  * 
- * determines if the tag list at base address is sane
- * @return true if sane
+ * determines whether or not the kernel is
+ * using atag.
+ * 
+ * @atag_base	base address provided during init.
+ * @return true if using atag.
  **/
-inline bool is_tag_list_sane(addr_t atag_base) {
+inline bool using_atag(addr_t atag_base) {
     struct atag *sch	= (struct atag *)atag_base;
-    bool 	ret 	= false;
-	
+    bool	ret	= false;
+    
     if (sch->header.tag == ATAG_CORE) {
 	ret = true;
     }
-
+    
     return ret;
 }
 
