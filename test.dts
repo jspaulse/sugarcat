@@ -1,7 +1,7 @@
 /dts-v1/;
 
 / {
-    model = "Testing fucking test.";
+    model = "Test,Test";
     compatible = "nope,nope", "less,nup";
     #address-cells = <0x1>;
     #size-cells = <0x1>;
@@ -11,10 +11,10 @@
     };
 
     chosen {
-	bootargs = "derp,derp fucking fuck";
+	bootargs = "derp,derp mutha derp";
     };
 	
     derp@0x100000 {
-	derpderp = "fuck";
+	derpderp = "moar derp";
     };
 };
