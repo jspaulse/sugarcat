@@ -3,7 +3,13 @@
 #include <types.h>
 #include <linker.h>
 
-void vexpress_init(unsigned int mach, addr_t atag_base);
+/**
+ * vexpress_init
+ * main low memory mach initialization
+ * @mach		mach code
+ * @atag_dt_base	base address of either atags or dt
+ **/
+void vexpress_init(unsigned int mach, addr_t atag_dt_base);
 
 /**
  * init_kvm_to_phy

@@ -21,7 +21,6 @@ struct mm_region {
 	size_t		size;
 };
 
-
 /**
  * mem_pg_cnt
  * 
@@ -66,13 +65,14 @@ inline unsigned int bitmap_size(size_t mem_sz) {
  * @return overhead cost in pages
  **/
 inline unsigned int bitmap_oh_pg_cnt(size_t mem_sz) {
-	unsigned int ret = bitmap_size(mem_sz);
+    unsigned int ret = bitmap_size(mem_sz);
 	
-	if (!is_power_of_two(ret)) {
-		ret = highest_bit(ret) << 1;
-	}
+    if (!is_power_of_two(ret)) {
+	ret = 0;	/* UNNECESSARY, WILL BE RECREATED */
+	//ret = highest_bit(ret) << 1;
+    }
 	
-	return ret >> DIV_PG;
+    return ret >> DIV_PG;
 }
 int pmm_init_test(struct mm_region phy_mem, addr_t bm_phy_start, addr_t bm_vir_start, struct mm_region *used, int used_cnt);
 bool is_page_allocated(addr_t pg_addr);

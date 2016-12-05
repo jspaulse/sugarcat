@@ -6,7 +6,9 @@
 #include <stdbool.h>
 
 #define PG_DIV_MASK		0x7
+#define PG_IDX_SHIFT		10
 #define PGD_ENTRY_CNT		4096
+#define PGD_ENTRY_SZ		4
 #define PGD_IDX_SHIFT		20
 #define PGD_SECT_AP_SHIFT	10
 #define PGD_DOMAIN_SHIFT	5

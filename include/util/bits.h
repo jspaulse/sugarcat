@@ -74,15 +74,15 @@ inline unsigned int clr_lv_lsb(unsigned int x) {
 /**
  * is_aligned_n
  * 
- * determines if an address is aligned to n alignment
+ * determines if a value x is aligned to n alignment
  * 
- * @addr	address to determine alignment
+ * @x		value
  * @n		alignment; i.e.,
  * 		if checking for 16KiB alignment, n == 0x4000 (16384)
  * @return true if aligned n
  **/
-inline bool is_aligned_n(addr_t addr, unsigned int n) {
-    return ((addr & (n - 1)) == 0);
+inline bool is_aligned_n(unsigned int x, unsigned int n) {
+    return ((x & (n - 1)) == 0);
 }
 
 /**
@@ -115,10 +115,20 @@ inline uint16_t be16_to_le16(uint16_t x) {
  * @return little-endian integer
  **/
 inline uint32_t be32_to_le32(uint32_t x) {
-    uint32_t ret = (((x & 0xFF) << 24) 	| 	/* 0 > 3 */
-	((x & 0xFF00) << 8) 		| 	/* 1 > 2 */
-	((x & 0xFF0000) >> 8) 		| 	/* 2 > 1 */
-	((x & 0xFF000000) >> 24)); 		/* 3 > 0 */
+    /*
+    uint32_t 		ret 	= 0;
+    unsigned char 	*rptr	= (unsigned char *)&ret;
+    unsigned char	*xptr	= (unsigned char *)&x;
+    
+    rptr[3] = xptr[0];
+    rptr[2] = xptr[1];
+    rptr[1] = xptr[2];
+    rptr[0] = xptr[3];
+    */
+    uint32_t ret = (((x & 0xFF) << 24) 	| 	
+	((x & 0xFF00) << 8) 		| 	
+	((x & 0xFF0000) >> 8) 		| 	
+	((x & 0xFF000000) >> 24));
     
     return ret;
 }

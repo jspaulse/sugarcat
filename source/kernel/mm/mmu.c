@@ -27,9 +27,12 @@
 #include <errno.h>
 #include <stdbool.h>
 
+/* keep track of kernel page tables */
 static struct mm_resv_reg mmu_pg_tbs;
 
 static int mmu_create_pgtb_entry(addr_t, addr_t, mmu_acc_flags_t, mmu_entry_type_t, bool);
+
+/* require a lock on any access to the kernel regions */
 
 /**
  * mmu_interface_enable
@@ -125,6 +128,18 @@ int mmu_invalidate_region(addr_t virt_addr, int pg_cnt) {
     return ret;
 }
 
+/**
+ * mmu_create_pgtb_entry
+ * 
+ * creates a page table entry based on the specified parameters.
+ * 
+ * @virt_addr	virtual address
+ * @phy_addr	physical address
+ * @acc_flags	access flags
+ * @type	entry type
+ * @invalidate	whether or not the tlb should be invalidated after write
+ * @return errno
+ **/
 static int mmu_create_pgtb_entry(addr_t virt_addr, addr_t phy_addr, mmu_acc_flags_t acc_flags, mmu_entry_type_t type, bool invalidate) {
     int 		ret 	= ESUCC;
     struct mmu_entry	entry	= {
@@ -142,14 +157,10 @@ static int mmu_create_pgtb_entry(addr_t virt_addr, addr_t phy_addr, mmu_acc_flag
     
     return ret;
 }
-// arch_mmu_get
-// int mmu_create_entry(...)
-// int mmu_map(...) ^
-// int mmu_map_region(vaddr_region, phys_pgs[], pg_cnt)
 
-// int mmu_map_new_entry(...)
-// int mmu_map_new(...)^
-// int mmu_map_new_region(...)
-
-/* prototypes */
+/* int mmu_map_page(addr_t virt_addr, addr_t phy_addr, mmu_acc_flags_t acc_flags) */
+/* int mmu_map_region(addr_t virt_addr, addr_t *phy_pages, int pg_cnt, mmu_acc_flags_t acc_flags); */
+/* int mmu_map_new_page(addr_t pgtb_base, addr_t virt_addr, addr_t phy_addr, mmc_acc_flags_t acc_flags) */
+/* int mmu_map_new_region(addr_t pgtb_base, addr_t virt_addr, addr_t *phy_pages, int pg_cnt, mmu_acc_flags_t acc_flags) */
+/* int mmu_create_new_user_pgd_pgtb(addr_t pg_dir, addr_t pg_tbs_base); */
 

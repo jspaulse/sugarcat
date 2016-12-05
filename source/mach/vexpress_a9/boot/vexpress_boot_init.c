@@ -43,7 +43,7 @@ static void init_enable_mmu(void);
  * mmu to move sp to high memory and branch into actual initialization
  * in vexpress_init
  **/
-void vexpress_boot_init(unsigned int r0, int mach, addr_t atags) {
+void vexpress_boot_init(unsigned int r0, int mach, addr_t atag_dt_base) {
     size_t bss_sz 	= (size_t)&lmi_bss_end - (size_t)&lmi_bss_start;
     size_t k_sz		= (size_t)&k_end - (size_t)&k_start;
     
@@ -65,7 +65,7 @@ void vexpress_boot_init(unsigned int r0, int mach, addr_t atags) {
     init_enable_mmu();
 	
     /* branch to main initialization code */
-    vexpress_init(mach, atags);
+    vexpress_init(mach, atag_dt_base);
 }
 
 /**

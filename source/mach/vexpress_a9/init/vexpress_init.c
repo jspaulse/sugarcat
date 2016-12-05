@@ -27,6 +27,7 @@
 #include <mach/mach_init.h>
 #include <init/kinit.h>
 #include <util/atag.h>
+#include <util/dt.h>
 #include <util/bits.h>
 #include <mm/mem.h>
 #include <mm/mm.h>
@@ -92,7 +93,7 @@ static int init_map_kern_pgtb(struct mm_reg *kern_pgtb, struct mm_reg *map_reg, 
  * moves the mmu mappings to page table mappings and maps the kernel & kernel init. regions
  * branches into the main kernel initialization
  **/
-void vexpress_init(unsigned int mach, addr_t atag_base) {
+void vexpress_init(unsigned int mach, addr_t atag_dt_base) {
     struct mm_resv_reg mmu_pgtb_reg	= {(((addr_t)&k_end & ~MASK_MB) + MB),
 	{((init_kvm_to_phy((addr_t)&k_end) & ~MASK_MB) + MB), MMU_PGTB_SIZE}};
     struct mm_reg	mmu_pgd_reg	= {(addr_t)&k_pgd, MMU_KPGD_SIZE};
@@ -103,9 +104,37 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
     struct mm_reg	mem_reg 	= {0, 0};
     bool		initrd_ex	= false;
     int			err		= 0;
+    struct fdt_header	*temp		= NULL;
+    
+    if (is_using_fdt(atag_dt_base)) {
+	mach_init_printf("Using device trees\n");
+    }
+    
+    install_ivt();
+    
+    fdt_convert_endian(atag_dt_base);
+    
+    mach_init_printf("fdt_header sz: %i\n", sizeof(struct fdt_header));
+    
+    temp = (struct fdt_header *)atag_dt_base;
+    
+    mach_init_printf("magic: 0x%x\ntotal_size: 0x%x (%i)\ndt_struct_offset: 0x%x\n",
+	temp->magic, temp->total_sz, temp->total_sz, temp->dt_struct_offset);
+    
+    mach_init_printf("dt_strings_offset: 0x%x\nmem_reserv_map_offset: 0x%x\n",
+	temp->dt_strings_offset, temp->mem_resv_map_offset);
+    
+    mach_init_printf("version: %i\nlast_compat_version: %i\nboot_cpuid_phys: %i\n",
+	temp->version, temp->last_compat_version, temp->boot_cpuid_phys);
+    
+    mach_init_printf("dt_strings_sz: 0x%x\ndt_struct_sz: 0x%x\n",
+	temp->dt_strings_sz, temp->dt_struct_sz);
+
+    mach_init_printf("\n\n\n\n\n");
+    test(atag_dt_base);
     
     /* grab the largest continuous region of memory */
-    if ((err = init_get_mem(atag_base, &mem_reg)) != ESUCC) {
+    if ((err = init_get_mem(atag_dt_base, &mem_reg)) != ESUCC) {
 	kinit_panic(buf, "init_get_mem() returned %i, no defined memory regions available.", err);
     } else if (mem_reg.size <= (kern_reg.size + kinit_reg.size + mmu_pgtb_reg.phy.size)) {
 	kinit_panic(buf, "not enough memory in region!  init_get_mem() returned %i bytes \
@@ -113,8 +142,8 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
     }
 	
     /* check if initrd exists */
-    if (tag_exists(atag_base, ATAG_INITRD2)) {
-	if ((err = init_get_initrd(atag_base, &initrd_reg)) != 0) {
+    if (tag_exists(atag_dt_base, ATAG_INITRD2)) {
+	if ((err = init_get_initrd(atag_dt_base, &initrd_reg)) != 0) {
 	    kinit_warn(buf, "tag_exists(ATAG_INITRD2) returned true but init_get_initrd() returned %i; \
 		assuming it doesn't exist.", err);
 	    initrd_ex = false;
@@ -194,7 +223,7 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
     }
     
     /* invalidate tlb */
-   armv7_invalidate_unified_tlb();
+    armv7_invalidate_unified_tlb();
     
     /* set up domains:
      * kernel domain does permission checking (client),
@@ -207,7 +236,7 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
     move_high_sp();
     
     /* branch into kernel init */
-    kernel_init(mach, atag_base, &mmu_pgtb_reg, NULL, 0);
+    kernel_init(mach, atag_dt_base, &mmu_pgtb_reg, NULL, 0);
 }
 
 /**
@@ -221,13 +250,13 @@ void vexpress_init(unsigned int mach, addr_t atag_base) {
  * @reg		struct to output into
  * @return errno
  **/
-static int init_get_mem(addr_t atag_base, struct mm_reg *reg) {
+static int init_get_mem(addr_t atag_dt_base, struct mm_reg *reg) {
     struct atag		*sch	= NULL;
     struct mm_reg	fnd 	= {0, 0};
     int 		ret 	= ESUCC;
 
     if (reg != NULL) {
-	sch = get_tag(atag_base, ATAG_MEM);
+	sch = get_tag(atag_dt_base, ATAG_MEM);
 		
 	if (sch != NULL) {
 	    fnd.base	= sch->u.mem.start;

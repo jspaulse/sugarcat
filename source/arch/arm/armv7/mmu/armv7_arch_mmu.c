@@ -66,6 +66,7 @@ int arch_mmu_create_entry(struct mmu_entry *entry) {
 	    armv7_pgtb_entry.virt_addr	= entry->virt_addr;
 	    armv7_pgtb_entry.acc_perm	= arch_mmu_acc_to_armv7(entry->acc_flags);
 	    armv7_pgtb_entry.type	= arch_mmu_pgtb_type_to_armv7(entry->type);
+	    armv7_pgtb_entry.flags	= 0x0;	/* TODO */
 	    
 	    ret = armv7_mmu_map_pgtb(&armv7_pgtb_entry);
 	    break;
@@ -77,7 +78,9 @@ int arch_mmu_create_entry(struct mmu_entry *entry) {
 int arch_mmu_create_new_entry(addr_t pg_base, struct mmu_entry *entry) {
     struct armv7_mmu_pgd_entry 	armv7_pgd_entry;
     struct armv7_mmu_pgtb_entry armv7_pgtb_entry;
-    int				ret	= 0;
+    addr_t			kvaddr		= 0x0;
+    int				index		= 0;
+    int				ret		= 0;
     
     /* create based on type */
     switch (entry->type) {
@@ -97,15 +100,24 @@ int arch_mmu_create_new_entry(addr_t pg_base, struct mmu_entry *entry) {
 	    armv7_pgtb_entry.virt_addr	= entry->virt_addr;
 	    armv7_pgtb_entry.acc_perm	= arch_mmu_acc_to_armv7(entry->acc_flags);
 	    armv7_pgtb_entry.type	= arch_mmu_pgtb_type_to_armv7(entry->type);
+	    armv7_pgtb_entry.flags	= 0x0;	/* TODO */
 	    
-	    ret = armv7_mmu_map_new_pgtb(pg_base, &armv7_pgtb_entry);
+	    /* grab kvaddr */
+	    kvaddr = arch_mmu_get_kern_vaddr();
+	    
+	    /* determine if this is high or low mem */
+	    if (entry->virt_addr >= kvaddr) {
+		index = ((entry->virt_addr - kvaddr) >> PGD_IDX_SHIFT);
+	    } else {
+		index = (entry->virt_addr >> PGD_IDX_SHIFT);
+	    }
+	    
+	    ret = armv7_mmu_map_new_pgtb((pg_base | (index << PG_IDX_SHIFT)), &armv7_pgtb_entry);
 	    break;
     }
     
     return ret;
 }
-
-extern void mach_init_printf(const char *, ...);
 
 size_t arch_mmu_get_user_pgtb_reg_sz(void) {
     int		pg_div	= armv7_mmu_get_pg_div();
@@ -133,7 +145,26 @@ addr_t arch_mmu_get_kern_vaddr(void) {
     return ret;
 }
 
-extern addr_t arch_mmu_get_kern_vaddr(void);
+size_t arch_mmu_get_user_pgd_sz(void) {
+    int		pg_div	= armv7_mmu_get_pg_div();
+    size_t	ret	= 0x0;
+    
+    if (pg_div > 0) {
+	ret = (1 << (32 - (pg_div + PGD_IDX_SHIFT))) * PGD_ENTRY_SZ;
+    } else {
+	ret = PGD_ENTRY_CNT * PGD_ENTRY_SZ;
+    }
+    
+    return ret;
+}
+
+bool arch_mmu_user_pgd_requires_alignment(void) {
+    return true;
+}
+
+unsigned int arch_mmu_get_user_pgd_alignment(void) {
+    return (1 << (TTBR_ALIGN - armv7_mmu_get_pg_div()));
+}
 
 void arch_mmu_invalidate(void) {
     armv7_invalidate_unified_tlb();
@@ -246,29 +277,3 @@ static armv7_mmu_pgd_type arch_mmu_pgd_type_to_armv7(mmu_entry_type_t type) {
     
     return ret;
 }
-
-/**
- * arch_mmu_get_pgtb_reg_sz
- * 
- * returns the space required (in bytes) for creating
- * a continuous region of page tables required for mapping
- * user space.
- * @return space required (in bytes) for page tables required to map
- * user address space.
- **/
-extern size_t arch_mmu_get_user_pgtb_reg_sz(void);
-
-/*
-addr_t armv7_mmu_get_user_pgd(void);
-addr_t armv7_mmu_get_kern_pgd(void);
-int armv7_mmu_set_kern_pgd(addr_t pgd_addr, unsigned char flags);
-int armv7_mmu_set_user_pgd(addr_t pgd_addr, unsigned char flags);
-
-int armv7_mmu_map_pgd(struct armv7_mmu_pgd_entry *pgd_ent);
-int armv7_mmu_map_pgtb(struct armv7_mmu_pgtb_entry *pgtb_ent);
-
-int armv7_mmu_map_new_pgd(addr_t pgd_addr, struct armv7_mmu_pgd_entry *pgd_ent);
-int armv7_mmu_map_new_pgtb(addr_t pgtb_addr, struct armv7_mmu_pgtb_entry *pgtb_ent);
-
-addr_t armv7_mmu_virt_to_phy(addr_t virt_addr);
-*/

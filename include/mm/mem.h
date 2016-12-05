@@ -1,5 +1,6 @@
 #ifndef MEM_H
 #define MEM_H
+#include <util/bits.h>
 #include <stddef.h>
 #include <types.h>
 
@@ -16,7 +17,7 @@
  * NOTE:  This function should only be utilized when reading to a peripheral
  **/
 inline unsigned int memr(addr_t address) {
-	return *(volatile unsigned int *)address;
+    return *(volatile unsigned int *)address;
 }
 
 /**
@@ -32,7 +33,7 @@ inline unsigned int memr(addr_t address) {
  * NOTE:  This function should only be utilized when writing to a peripheral
  **/
 inline void memw(addr_t address, unsigned int data) {
-	*(volatile unsigned int *)address = data;
+    *(volatile unsigned int *)address = data;
 }
 
 /**
@@ -48,22 +49,68 @@ inline void memw(addr_t address, unsigned int data) {
  * @size	number of bytes within region to fill
  **/
 inline void memset(void *dat, unsigned char c, size_t size) {
-	unsigned char *ptr = (unsigned char *)dat;
+    unsigned char *ptr = (unsigned char *)dat;
 
-	for (unsigned int i = 0; i < size; i++) {
-		ptr[i] = c;
-	}
+    for (unsigned int i = 0; i < size; i++) {
+	ptr[i] = c;
+    }
 }
 
+/**
+ * memcpy
+ * 
+ * memory copy
+ * 
+ * copies a region of memory of specified size from specified region
+ * into specified destination. specified.
+ * 
+ * @dest	pointer to destination
+ * @src		pointer to source
+ * @size	size (in bytes) to copy
+ **/
 inline void memcpy(void *dest, const void *src, size_t size) {
-	unsigned char *dptr = (unsigned char *)dest;
-	unsigned char *sptr = (unsigned char *)src;
+    unsigned char *dptr = (unsigned char *)dest;
+    unsigned char *sptr = (unsigned char *)src;
 	
-	for (unsigned int i = 0; i < size; i++) {
-		dptr[i] = sptr[i];
-	}
+    for (unsigned int i = 0; i < size; i++) {
+	dptr[i] = sptr[i];
+    }
 }
 
+extern void mach_init_printf(const char *, ...);
+/**
+ * memconvle32
+ * 
+ * memory convert to little endian 32
+ * converts a region of memory to little endian
+ * @src		pointer to region
+ * @size	size (in bytes) of region
+ */
+inline void memconvle32(void *src, size_t size) {
+    uint32_t 	*ptr 	= (uint32_t *)src;
+    size_t 	act	= size >> 2;	/* size / 4 */
+    
+    for (unsigned int i = 0; i < act; i++) {
+	ptr[i] = be32_to_le32(ptr[i]);
+    }
+}
+
+/**
+ * memconvle64
+ * 
+ * memory convert to little endian 64
+ * converts a region of memory to little endian
+ * @src		pointer to region
+ * @size	size (in bytes) of region
+ **/
+inline void memconvle64(void *src, size_t size) {
+    uint64_t	*ptr	= (uint64_t *)src;
+    size_t	act	= size >> 3;	/* size /  8 */
+    
+    for (unsigned int i = 0; i < act; i++) {
+	ptr[i] = be64_to_le64(ptr[i]);
+    }
+}
 
 
 #endif

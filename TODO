@@ -1,3 +1,26 @@
+/* Interrupts [42:0] are from the motherboard;
+     * [47:43] are reserved; [63:48] are daughterboard
+     * peripherals. Note that some documentation numbers
+     * external interrupts starting from 32 (because there
+     * are internal interrupts 0..31).
+     */
+  /* 0x10020000 PL111 CLCD (daughterboard) */
+    sysbus_create_simple("pl111", 0x10020000, pic[44]);
+ sysbus_create_simple("sp804", 0x100e4000, pic[48]);
+ sysbus_connect_irq(SYS_BUS_DEVICE(pl041), 0, pic[11]);
+ sysbus_create_simple("pl050_keyboard", map[VE_KMI0], pic[12]);
+    sysbus_create_simple("pl050_mouse", map[VE_KMI1], pic[13]);
+
+    pl011_create(map[VE_UART0], pic[5], serial_hds[0]);
+    pl011_create(map[VE_UART1], pic[6], serial_hds[1]);
+    pl011_create(map[VE_UART2], pic[7], serial_hds[2]);
+    pl011_create(map[VE_UART3], pic[8], serial_hds[3]);
+    sysbus_create_simple("sp804", map[VE_TIMER01], pic[2]);
+    sysbus_create_simple("sp804", map[VE_TIMER23], pic[3]);
+    sysbus_create_simple("pl031", map[VE_RTC], pic[4]); /* RTC */
+    sysbus_create_simple("pl111", map[VE_CLCD], pic[14]);
+    lan9118_init(&nd_table[0], map[VE_ETHERNET], pic[15]);
+    
 development flow (short term):
     spinlocks
     memory management:

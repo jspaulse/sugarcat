@@ -53,7 +53,12 @@ extern int arch_mmu_create_entry(struct mmu_entry *entry);
  * 
  * creates a new mmu entry based on the parameters given in entry.
  * if entry->type == PG_DIR, pg_base should be the base address of the page directory.
- * if entry->type == PG_TAB, pg_base should be the base address of a continuous region of page tables.
+ * if entry->type == PG_TAB, pg_base should be the base address of the continuous region
+ * of page tables.
+ * if entry-type == PG_TAB, this function must calculate where the page table of the entry
+ * exists within the specified region.
+ * this function is intended for new (unmapped) page tables & directories and must not be
+ * used on the current mmu.
  * 
  * @pg_base	base address of either page directory or page tables
  * @entry	entry to add
@@ -82,13 +87,44 @@ extern void arch_mmu_invalidate(void);
 extern size_t arch_mmu_get_user_pgtb_reg_sz(void);
 
 /**
+ * arch_mmu_get_user_pgd_sz
+ * 
+ * returns the size (in bytes) required for
+ * a user page directory.
+ * 
+ * @return size (in bytes) of user page directory.
+ **/
+extern size_t arch_mmu_get_user_pgd_sz(void);
+
+/**
+ * arch_mmu_user_pgd_requires_alignment
+ * 
+ * determines if the user page directory
+ * requires a specific alignment.
+ * 
+ * @return true if alignment required
+ **/
+extern bool arch_mmu_user_pgd_requires_alignment(void);
+
+/**
+ * arch_mmu_get_user_pgd_alignment
+ * 
+ * returns the required alignment for a 
+ * user page directory.
+ * this function must return the alignment in bytes,
+ * i.e., for a 16KiB alignment, the function should return
+ * 0x4000 or 16384.
+ * 
+ * @return required user page directory alignment
+ **/
+extern unsigned int arch_mmu_get_user_pgd_alignment(void);
+
+/**
  * arch_mmu_get_kern_vaddr
  * 
  * returns the beginning of the kernel virtual address space
  * @return base of kernel virtual address space.
  **/
 extern addr_t arch_mmu_get_kern_vaddr(void);
-
-
 
 #endif

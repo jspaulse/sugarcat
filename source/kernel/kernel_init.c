@@ -18,13 +18,18 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#include <arch/arch_mmu.h>	/* TMP! */
 #include <mach/mach_init.h>
 #include <init/kinit.h>
+#include <mm/mem.h>
 #include <linker.h>
 #include <types.h>
 
 void kernel_init(unsigned int mach, addr_t atag_dt_base, struct mm_resv_reg *mmu_pgtbs, struct mm_resv_reg *resv_regs, int reg_cnt) {
+    size_t hmi_bss_sz	= (size_t)&hmi_bss_start - (size_t)&hmi_bss_end;
+    
+    /* clear bss */
+    memset(&hmi_bss_start, 0, hmi_bss_sz);
+    
     if (mach) {
 	if (atag_dt_base) {
 	    if (mmu_pgtbs) {

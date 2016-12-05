@@ -141,7 +141,7 @@ inline bool tag_exists(addr_t atag_base, unsigned int tag) {
 }
 
 /**
- * using_atag
+ * is_using_atag
  * 
  * determines whether or not the kernel is
  * using atag.
@@ -149,7 +149,7 @@ inline bool tag_exists(addr_t atag_base, unsigned int tag) {
  * @atag_base	base address provided during init.
  * @return true if using atag.
  **/
-inline bool using_atag(addr_t atag_base) {
+inline bool is_using_atag(addr_t atag_base) {
     struct atag *sch	= (struct atag *)atag_base;
     bool	ret	= false;
     
