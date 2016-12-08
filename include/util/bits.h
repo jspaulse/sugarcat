@@ -97,34 +97,46 @@ inline bool is_power_of_two(unsigned int x) {
 }
 
 /**
- * be16_to_le16
+ * is_little_endian
  * 
- * converts a big-endian 16 bit unsigned integer to little-endian
- * @x	unsigned integer to convert
- * @return little-endian integer
+ * determines if the current endianness is little-endian
+ * @return true if little endian
  **/
-inline uint16_t be16_to_le16(uint16_t x) {
+inline bool is_little_endian(void) {
+    bool 		ret 	= false;
+    unsigned int	test	= 1;
+    unsigned char	*ptr	= (unsigned char *)&test;
+    
+    if (*ptr == 1) {
+	ret = true;
+    }
+    
+    return ret;
+}
+
+/**
+ * endswap16
+ * 
+ * endian swap 16bit
+ * 
+ * swaps a 16 bit unsigned integers endianness
+ * @x	unsigned integer to swap
+ * @return swapped integer
+ **/
+inline uint16_t endswap16(uint16_t x) {
     return ((x >> 8) | (x << 8));
 }
 
 /**
- * be32_to_le32
+ * endswap32
  * 
- * converts a big-endian 32 bit unsigned integer to little-endian
- * @x	unsigned integer to convert
- * @return little-endian integer
+ * endian swap 32bit
+ * 
+ * swaps a 32 bit unsigned integers endianness
+ * @x	unsigned integer to swap
+ * @return swapped integer
  **/
-inline uint32_t be32_to_le32(uint32_t x) {
-    /*
-    uint32_t 		ret 	= 0;
-    unsigned char 	*rptr	= (unsigned char *)&ret;
-    unsigned char	*xptr	= (unsigned char *)&x;
-    
-    rptr[3] = xptr[0];
-    rptr[2] = xptr[1];
-    rptr[1] = xptr[2];
-    rptr[0] = xptr[3];
-    */
+inline uint32_t endswap32(uint32_t x) {
     uint32_t ret = (((x & 0xFF) << 24) 	| 	
 	((x & 0xFF00) << 8) 		| 	
 	((x & 0xFF0000) >> 8) 		| 	
@@ -134,13 +146,15 @@ inline uint32_t be32_to_le32(uint32_t x) {
 }
 
 /**
- * be64_to_le64
+ * endswap64
  * 
- * converts a big-endian 64 bit unsigned integer to little-endian
- * @x	unsigned integer to convert
- * @return little-endian integer
+ * endian swap 64bit
+ * 
+ * swaps a 64 bit unsigned integers endianness
+ * @x	unsigned integer to swap
+ * @return swapped integer
  **/
-inline uint64_t be64_to_le64(uint64_t x) {
+inline uint64_t endswap64(uint64_t x) {
     uint64_t ret = (((x & 0xFF) << 56) 	|	/* 0 > 7 */
 	((x & 0xFF00) << 40)		|	/* 1 > 6 */
 	((x & 0xFF0000) << 24)		|	/* 2 > 5 */
@@ -149,6 +163,74 @@ inline uint64_t be64_to_le64(uint64_t x) {
 	((x & 0xFF0000000000) >> 24)	|	/* 5 > 2 */
 	((x & 0xFF000000000000) >> 40)	|	/* 6 > 1 */
 	((x >> 56) & 0xFF));			/* 7 > 0 */
+    
+    return ret;
+}
+
+/**
+ * cpu_to_be16
+ * 
+ * converts a cpu endianness unsigned integer to big endian
+ * @x	integer to swap
+ * @return big endian unsigned integer
+ **/
+inline uint16_t cpu_to_be16(uint16_t x) {
+    uint16_t ret = x;
+    
+    if (is_little_endian()) {
+	ret = endswap16(x);
+    }
+    
+    return ret;
+}
+
+/**
+ * be16_to_cpu
+ * 
+ * converts a big-endian 16 bit unsigned integer to cpu endianness
+ * @x	integer to spawn
+ * @return cpu endian unsigned integer
+ **/
+inline uint16_t be16_to_cpu(uint16_t x) {
+    uint16_t ret = x;
+    
+    if (is_little_endian()) {
+	ret = endswap16(x);
+    }
+    
+    return ret;
+}
+
+/**
+ * be32_to_cpu
+ * 
+ * converts a big-endian 32 bit unsigned integer to cpu endianness
+ * @x	integer to spawn
+ * @return cpu endian unsigned integer
+ **/
+inline uint32_t be32_to_cpu(uint32_t x) {
+    uint32_t ret = x;
+    
+    if (is_little_endian()) {
+	ret = endswap32(x);
+    }
+    
+    return ret;
+}
+
+/**
+ * be64_to_cpu
+ * 
+ * converts a big-endian 64 bit unsigned integer to cpu endianness
+ * @x	integer to spawn
+ * @return cpu endian unsigned integer
+ **/
+inline uint64_t be64_to_cpu(uint64_t x) {
+    uint64_t ret = x;
+    
+    if (is_little_endian()) {
+	ret = endswap64(x);
+    }
     
     return ret;
 }

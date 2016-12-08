@@ -82,7 +82,7 @@ extern void mach_init_printf(const char *, ...);
  * memconvle32
  * 
  * memory convert to little endian 32
- * converts a region of memory to little endian
+ * converts a region of big-endian memory to little endian
  * @src		pointer to region
  * @size	size (in bytes) of region
  */
@@ -91,7 +91,7 @@ inline void memconvle32(void *src, size_t size) {
     size_t 	act	= size >> 2;	/* size / 4 */
     
     for (unsigned int i = 0; i < act; i++) {
-	ptr[i] = be32_to_le32(ptr[i]);
+	ptr[i] = be32_to_cpu(ptr[i]);
     }
 }
 
@@ -99,7 +99,7 @@ inline void memconvle32(void *src, size_t size) {
  * memconvle64
  * 
  * memory convert to little endian 64
- * converts a region of memory to little endian
+ * converts a region of big-endian memory to little endian
  * @src		pointer to region
  * @size	size (in bytes) of region
  **/
@@ -108,7 +108,7 @@ inline void memconvle64(void *src, size_t size) {
     size_t	act	= size >> 3;	/* size /  8 */
     
     for (unsigned int i = 0; i < act; i++) {
-	ptr[i] = be64_to_le64(ptr[i]);
+	ptr[i] = be64_to_cpu(ptr[i]);
     }
 }
 
