@@ -104,38 +104,17 @@ void vexpress_init(unsigned int mach, addr_t atag_fdt_base) {
     struct mm_reg	mem_reg 	= {0, 0};
     bool		initrd_ex	= false;
     int			err		= 0;
-    struct fdt_header	*temp		= NULL;
     
     if (is_using_fdt(atag_fdt_base)) {
 	mach_init_printf("Using device trees\n");
     }
     
+    /* temp */
     install_ivt();
-    
-    temp = (struct fdt_header *)atag_fdt_base;
-    mach_init_printf("value before: 0x%x\n", temp->magic);
     
     fdt_convert_endian(atag_fdt_base);
     
-    mach_init_printf("fdt_header sz: %i\n", sizeof(struct fdt_header));
-    
-    //temp = (struct fdt_header *)atag_fdt_base
-    mach_init_printf("expected: 0x%x\n", be32_to_cpu(temp->magic));
-    
-    mach_init_printf("magic: 0x%x\ntotal_size: 0x%x (%i)\ndt_struct_offset: 0x%x\n",
-	temp->magic, temp->total_sz, temp->total_sz, temp->dt_struct_offset);
-    
-    mach_init_printf("dt_strings_offset: 0x%x\nmem_reserv_map_offset: 0x%x\n",
-	temp->dt_strings_offset, temp->mem_resv_map_offset);
-    
-    mach_init_printf("version: %i\nlast_compat_version: %i\nboot_cpuid_phys: %i\n",
-	temp->version, temp->last_compat_version, temp->boot_cpuid_phys);
-    
-    mach_init_printf("dt_strings_sz: 0x%x\ndt_struct_sz: 0x%x\n",
-	temp->dt_strings_sz, temp->dt_struct_sz);
 
-    mach_init_printf("\n\n\n\n\n");
-    test(atag_fdt_base);
     
     /* grab the largest continuous region of memory */
     if ((err = init_get_mem(atag_fdt_base, &mem_reg)) != ESUCC) {
@@ -315,6 +294,20 @@ static int init_get_initrd(addr_t atag_base, struct mm_reg *reg) {
 	
     return ret;
 }
+
+/*
+static int init_get_initrd(addr_t atag_fdt_base, struct mm_reg *reg) {
+    int	ret	= ESUCC;
+    
+    if (reg != NULL) {
+	if (
+    } else {
+	ret = EINVAL;
+    }
+    
+    return ret;
+}
+*/
 
 /**
  * init_setup_kern_pgtb

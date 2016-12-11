@@ -88,6 +88,11 @@ inline bool is_using_fdt(addr_t fdt_base) {
     return ret;
 }
 
+/* fdt_get_next_node(struct fdt_node *curr); */
+/* fdt_get_root_node(addr_t fdt_base); */
+/* fdt_get_node(const char *name, addr_t fdt_base) */
+    /* if strlen(name) == 0, root node */
+/* fdt_get_property(struct fdt_node *, char *property); */
 /**
  * fdt_convert_endian
  * 
@@ -153,6 +158,8 @@ inline int fdt_convert_endian(addr_t fdt_base) {
 		} else {
 		    mach_init_printf("%s%s = %s\n", tabs, str, prop->data);
 		}
+		
+		mach_init_printf("prop->len: %i\n", prop->length);
 		
 		//mach_init_printf("FDT_PROP 0x%x, prop->length %i, prop->offset: 0x%x\n", (addr_t)node - fdt_base, prop->length, (prop->name_offset + head->dt_strings_offset));
 		//mach_init_printf("%s -> %s\n", str, prop->data);
