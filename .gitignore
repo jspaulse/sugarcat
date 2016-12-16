@@ -6,4 +6,4 @@
 *.list
 *.map
 *.rf
-build/*.cfg
+build/
