@@ -14,13 +14,7 @@ OBJ			= $(addprefix $(BUILD), $(patsubst %.c, %.o, $(SUB_FILES)))
 
 all:
 	@$(MAKE) -s curr
-	$(MAKE) -s -C $(MM) $(PASS_FLAGS)
-	#@$(MAKE) -s -C $(BOOT) $(PASS_FLAGS)
-	#@$(MAKE) -s -C $(INIT) $(PASS_FLAGS)
-	
-	# make arch specific
-	#@$(MAKE) -s -C $(ARCH_SOURCE)$(ARCH) $(PASS_FLAGS)
-	#@$(MAKE) -s -C $(CPU_SOURCE)$(CPU) $(PASS_FLAGS)
+	@$(MAKE) -s -C $(MM) $(PASS_FLAGS)
 
 curr: $(OBJ)
 

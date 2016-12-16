@@ -105,16 +105,36 @@ void vexpress_init(unsigned int mach, addr_t atag_fdt_base) {
     bool		initrd_ex	= false;
     int			err		= 0;
     
-    if (is_using_fdt(atag_fdt_base)) {
-	mach_init_printf("Using device trees\n");
-    }
+    /* debug */
+    #ifdef CONFIG_INIT_DEBUG
+	mach_init_printf("========== VEXPRESS_A9_QEMU ==========\n");
+	mach_init_printf("kernel init reg: 0x%x - 0x%x, %i bytes\n",
+	    kinit_reg.base, kinit_reg.base + kinit_reg.size, kinit_reg.size);
+	mach_init_printf("kernel phys reg: 0x%x - 0x%x, %i bytes\n",
+	    kern_reg.base, kern_reg.base + kern_reg.size, kern_reg.size);
+	mach_init_printf("kernel stack: 0x%x, %i bytes\n", kstack_reg.base, kstack_reg.size);
+	mach_init_printf("mmu page dir reg: 0x%x - 0x%x, %i bytes\n",
+	    mmu_pgd_reg.base, mmu_pgd_reg.base + mmu_pgd_reg.size, mmu_pgd_reg.size);
+	mach_init_printf("mmu page table reg: 0x%x - 0x%x, %i bytes\n", mmu_pgtb_reg.phy.base,
+	    mmu_pgtb_reg.phy.base + mmu_pgtb_reg.phy.size, mmu_pgtb_reg.phy.size);
+    #endif
     
-    /* temp */
+    /* TODO: tmp */
     install_ivt();
     
-    fdt_convert_endian(atag_fdt_base);
+    /* we're not provided with anything for init; panic */
+    if (!is_using_fdt(atag_fdt_base) && !is_using_atag(atag_fdt_base)) {
+	kinit_panic(buf, "kernel was not provided fdt or atag; init. is impossible to do without either.\n", 0);
+    }
     
-
+    /* debug */
+    #ifdef CONFIG_INIT_DEBUG
+	if (is_using_fdt(atag_fdt_base)) {
+	    mach_init_printf("using fdt, base 0x%x\n", atag_fdt_base);
+	} else if (is_using_atag(fdt_base)) {
+	    mach_init_printf("using atag, base 0x%x\n", atag_fdt_base);
+	}
+    #endif
     
     /* grab the largest continuous region of memory */
     if ((err = init_get_mem(atag_fdt_base, &mem_reg)) != ESUCC) {
@@ -265,6 +285,8 @@ static int init_get_mem(addr_t atag_fdt_base, struct mm_reg *reg) {
 	
     return ret;
 }
+
+
 
 /**
  * init_get_initrd

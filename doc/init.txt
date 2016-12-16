@@ -1,0 +1,2 @@
+Initialization:
+    CONFIG_INIT_DEBUG

@@ -16,7 +16,7 @@ TARGET		= kernel.img
 LIST		= kernel.list
 MAP			= kernel.map
 READELF		= kernel.rf
-CFLAGS 		= -I$(INCLUDE) -std=gnu11 -O2 -Wall -Werror -Wextra -Wshadow \
+CFLAGS 		= -D $(CONFIG_FLAGS) -I$(INCLUDE) -std=gnu11 -O2 -Wall -Werror -Wextra -Wshadow \
 			-nostdlib -nostartfiles -ffreestanding \
 			-pedantic -pedantic-errors $(ARCH_CFLAGS)
 AFLAGS		= --warn --fatal-warnings -I $(INCLUDE) $(ARCH_AFLAGS)

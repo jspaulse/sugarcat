@@ -93,6 +93,26 @@ inline bool is_using_fdt(addr_t fdt_base) {
 /* fdt_get_node(const char *name, addr_t fdt_base) */
     /* if strlen(name) == 0, root node */
 /* fdt_get_property(struct fdt_node *, char *property); */
+
+/**
+ * fdt_get_root_node
+ * 
+ * returns the root node of the flattended device tree
+ * 
+ * @fdt_base	base address of the fdt
+ * @return root node or null if not found
+ **/
+inline struct fdt_node *fdt_get_root_node(addr_t fdt_base) {
+    struct fdt_node 	*ret	= NULL;
+    struct fdt_header	*head	= (struct fdt_header *)fdt_base;
+    
+    /* ensure it's actually fdt */
+    if (is_using_fdt(fdt_base)) {
+	ret = (struct fdt_node *)(fdt_base + be32_to_cpu(head->dt_struct_offset));
+    }
+    
+    return ret;
+}
 /**
  * fdt_convert_endian
  * 

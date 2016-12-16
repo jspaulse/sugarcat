@@ -7,9 +7,9 @@ PASS_FLAGS 	= 'ARCH=$(ARCH)' BUILD='$(BUILD)' CFLAGS='$(CFLAGS)' AFLAGS='$(AFLAG
 PASS_FLAGS	+= GNU_TOOLS='$(GNU_TOOLS)' MACH='$(MACH)' CPU='$(CPU)'
 PASS_FLAGS	+= SOURCE='$(SOURCE)'
 
-SRC_FILES		= $(notdir $(wildcard *.c)) $(notdir $(wildcard *.s))
-SUB_FILES		= $(patsubst %.s, %.o, $(SRC_FILES))
-OBJ				= $(addprefix $(BUILD), $(patsubst %.c, %.o, $(SUB_FILES)))
+SRC_FILES	= $(notdir $(wildcard *.c)) $(notdir $(wildcard *.s))
+SUB_FILES	= $(patsubst %.s, %.o, $(SRC_FILES))
+OBJ			= $(addprefix $(BUILD), $(patsubst %.c, %.o, $(SUB_FILES)))
 
 all:
 	@$(MAKE) -s curr

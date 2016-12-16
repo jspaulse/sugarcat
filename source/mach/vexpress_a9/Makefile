@@ -10,7 +10,7 @@ INIT		= init/
 
 PASS_FLAGS 	= 'ARCH=$(ARCH)' BUILD='$(BUILD)' CFLAGS='$(CFLAGS)' AFLAGS='$(AFLAGS)'
 PASS_FLAGS	+= GNU_TOOLS='$(GNU_TOOLS)' MACH='$(MACH)' CPU='$(CPU)'
-PASS_FLAGS	+= SOURCE='$(SOURCE)'
+PASS_FLAGS	+= SOURCE='$(SOURCE)' CONFIG_FLAGS='$(CONFIG_FLAGS)'
 
 SRC_FILES	= $(notdir $(wildcard *.c)) $(notdir $(wildcard *.s))
 SUB_FILES	= $(patsubst %.s, %.o, $(SRC_FILES))
@@ -30,7 +30,7 @@ curr: $(OBJ)
 
 $(BUILD)%.o : %.c
 	@echo "[GCC]		$<"
-	@$(GNU_TOOLS)-gcc $(CFLAGS) -c $< -o $@
+	@$(GNU_TOOLS)-gcc -D $(CONFIG_FLAGS) $(CFLAGS) -c $< -o $@
 
 $(BUILD)%.o : %.s
 	@echo "[ASM]		$<"
