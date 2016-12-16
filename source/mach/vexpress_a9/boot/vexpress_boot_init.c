@@ -45,7 +45,7 @@ static void init_enable_mmu(void);
  **/
 void vexpress_boot_init(unsigned int r0, int mach, addr_t atag_dt_base) {
     size_t bss_sz 	= (size_t)&lmi_bss_end - (size_t)&lmi_bss_start;
-    size_t k_sz		= (size_t)&k_end - (size_t)&k_start;
+    size_t k_sz		= (size_t)init_kvm_to_phy((addr_t)&k_end) - (size_t)&lmi_start;
     
     /* clean bss */
     memset(&lmi_bss_start, 0, bss_sz);
@@ -58,12 +58,12 @@ void vexpress_boot_init(unsigned int r0, int mach, addr_t atag_dt_base) {
     if (r0 != 0) {
 	/* should we do something here? */
     }
-	
+    
     /* init/enable mmu */
     init_user_pg_dir((addr_t)&k_pgd);
-    init_kern_pg_dir((addr_t)&k_pgd, init_kvm_to_phy((addr_t)&k_start), k_sz);
+    init_kern_pg_dir((addr_t)&k_pgd, (addr_t)&lmi_start, k_sz);
     init_enable_mmu();
-	
+    
     /* branch to main initialization code */
     vexpress_init(mach, atag_dt_base);
 }
@@ -153,7 +153,7 @@ static void init_kern_pg_dir(addr_t k_phy_pg_dir, addr_t k_phy_start, size_t k_s
  * @virt_addr	virtual address being mapped to physical address
  **/
 static void init_pg_dir_entry(addr_t *pg_dir, addr_t phy_addr, addr_t virt_addr) {
-    unsigned int 	entry 	= (phy_addr & PGD_SECT_MASK) | ( ARMV7_MMU_ACC_KRW_URW << 10) | ARMV7_MMU_PGD_SECTION;
+    unsigned int entry = (phy_addr & PGD_SECT_MASK) | (ARMV7_MMU_ACC_KRW_URW << 10) | ARMV7_MMU_PGD_SECTION;
 
     pg_dir[(virt_addr >> DIV_MULT_MB)] = entry;
 }
