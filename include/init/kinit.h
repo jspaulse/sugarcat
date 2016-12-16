@@ -39,12 +39,12 @@ inline void __kinit_panic(const char *msg, const char *file, const char *func, i
  * initializations of all of the elements of the operating system.
  * 
  * @mach		machine code provided by bootloader(?)
- * @atag_dt_base	base address of the atag or dt
- * @mmu_pgtbs		a reserved region structure representing the page tables region
- * @resv_regs		an array of other reserved regions (can be null)
+ * @atag_fdt_base	base address of the atag or dt
+ * @mmu_pgtb		a reserved region structure representing the page tables region
+ * @reserved_regs	an array of other reserved regions (can be null)
  * @reg_cnt		number of other reserved regions;  if resv_regs is null, reg_cnt should be zero
  **/
-void kernel_init(unsigned int mach, addr_t atag_dt_base, struct mm_resv_reg *mmu_pgtbs, struct mm_resv_reg *resv_regs, int reg_cnt);
+void kernel_init(unsigned int mach, addr_t atag_fdt_base, struct mm_vreg *mmu_pgtb_reg, struct mm_vreg *reserved_regs, int reg_cnt);
 
 
 

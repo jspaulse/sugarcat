@@ -7,13 +7,29 @@
 /**
  * mm_reg
  * 
- * Represents a region of memory
+ * represents a region of memory
  * 
  * @base	base address of memory
- * @sz		size of memory region
+ * @size	size of memory region
  **/
 struct mm_reg {
     addr_t 	base;
+    size_t	size;
+};
+
+/**
+ * mm_vreg
+ * 
+ * represents a region with a virtual & physical
+ * address.
+ * 
+ * @phy_base	physical base address
+ * @virt_base	virtual base address
+ * @size	size of region
+ **/
+struct mm_vreg {
+    addr_t	phy_base;
+    addr_t	virt_base;
     size_t	size;
 };
 

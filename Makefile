@@ -14,14 +14,13 @@ CONFIGS		= $(BUILD)*.inc
 LINKER		= $(MACH_SOURCE)$(MACH)/kernel.ld
 TARGET		= kernel.img
 LIST		= kernel.list
-MAP		= kernel.map
+MAP			= kernel.map
 READELF		= kernel.rf
-CFLAGS 		= -D $(CONFIG_FLAGS) -I$(INCLUDE) -std=gnu11 -O2 -Wall -Werror -Wextra -Wshadow \
-		    -nostdlib -nostartfiles -ffreestanding \
-		    -pedantic -pedantic-errors $(ARCH_CFLAGS)
+CFLAGS 		= -D $(CONFIG_FLAGS) -I $(INCLUDE) -std=gnu11 -O2 -Wall -Werror -Wextra -Wshadow \
+		    -nostdlib -nostartfiles -ffreestanding -pedantic -pedantic-errors $(ARCH_CFLAGS)
 AFLAGS		= --warn --fatal-warnings -I $(INCLUDE) $(ARCH_AFLAGS)
 
-PASS_FLAGS 	= 'ARCH=$(ARCH)' BUILD='$(FBUILD)' CFLAGS='$(CFLAGS)' AFLAGS='$(AFLAGS)'
+PASS_FLAGS 	= ARCH='$(ARCH)' BUILD='$(FBUILD)' CFLAGS='$(CFLAGS)' AFLAGS='$(AFLAGS)'
 PASS_FLAGS	+= GNU_TOOLS='$(GNU_TOOLS)' MACH='$(MACH)' CPU='$(CPU)'
 PASS_FLAGS	+= SOURCE='$(SOURCE)'
 

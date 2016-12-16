@@ -24,16 +24,23 @@
 #include <linker.h>
 #include <types.h>
 
-void kernel_init(unsigned int mach, addr_t atag_dt_base, struct mm_resv_reg *mmu_pgtbs, struct mm_resv_reg *resv_regs, int reg_cnt) {
-    size_t hmi_bss_sz	= (size_t)&hmi_bss_start - (size_t)&hmi_bss_end;
+void kernel_init(unsigned int mach, addr_t atag_fdt_base, struct mm_vreg *mmu_pgtb_reg, struct mm_vreg *reserved_regs, int reg_cnt) {
+    size_t hmi_bss_sz		= (size_t)&hmi_bss_start - (size_t)&hmi_bss_end;
+    size_t k_bss_sz		= (size_t)&k_end - (size_t)&k_start;
     
-    /* clear bss */
+    /* clear hmi & kernel bss */
     memset(&hmi_bss_start, 0, hmi_bss_sz);
+    memset(&k_start, 0, k_bss_sz);
+    
+    /* we're not provided with anything for init; panic */
+    //if (!is_using_fdt(atag_fdt_base) && !is_using_atag(atag_fdt_base)) {
+	//kinit_panic(buf, "kernel was not provided fdt or atag; init. is impossible to do without either.\n", 0);
+    //}
     
     if (mach) {
-	if (atag_dt_base) {
-	    if (mmu_pgtbs) {
-		if (resv_regs) {
+	if (atag_fdt_base) {
+	    if (mmu_pgtb_reg) {
+		if (reserved_regs) {
 		    if (reg_cnt) {
 			
 		    }
@@ -42,4 +49,5 @@ void kernel_init(unsigned int mach, addr_t atag_dt_base, struct mm_resv_reg *mmu
 	}
     }
 }
+
 

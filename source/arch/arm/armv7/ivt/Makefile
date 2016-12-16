@@ -9,10 +9,10 @@ OBJ				= $(addprefix $(BUILD), $(patsubst %.c, %.o, $(SUB_FILES)))
 all: $(OBJ)
 
 $(BUILD)%.o : %.c
-	@echo "[GCC]		$<"
+	@echo "[GCC]	$<"
 	@$(GNU_TOOLS)-gcc $(CFLAGS) -c $< -o $@
 
 $(BUILD)%.o : %.s
-	@echo "[ASM]		$<"
+	@echo "[ASM]	$<"
 	@$(GNU_TOOLS)-as $(AFLAGS) $< -o $@
 

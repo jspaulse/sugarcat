@@ -20,12 +20,20 @@
  */
 #include <sync/barriers.h>
 #include <arch/arch_mmu.h>
+#include <util/bits.h>
 #include <mm/mmu.h>
 #include <mm/mem.h>
 #include <mm/mm.h>
 #include <types.h>
 #include <errno.h>
 #include <stdbool.h>
+
+#define MMU_PG_SHIFT	12
+#define MMU_PGD_SHIFT	20
+
+#define DIV_MULT_MB 	20
+#define DIV_MULT_PGTB	10
+#define DIV_MULT_PG	12
 
 /* keep track of kernel page tables */
 static struct mm_resv_reg mmu_pg_tbs;
@@ -88,6 +96,7 @@ int mmu_invalidate_page(addr_t virt_addr) {
 /**
  * mmu_invalidate_region
  * invalidates a region of virtual memory by removing the virtual->physical mapping.
+ * 
  * @virt_addr	base of virtual region to invalidate
  * @pg_cnt	number of pages to invalidate in region
  * @return errno
@@ -157,6 +166,34 @@ static int mmu_create_pgtb_entry(addr_t virt_addr, addr_t phy_addr, mmu_acc_flag
     
     return ret;
 }
+
+/**
+ * arch_mmu_create_new_entry
+ * 
+ * creates a new mmu entry based on the parameters given in entry.
+ * if entry->type == PG_DIR, pg_base should be the base address of the page directory.
+ * if entry->type == PG_TAB, pg_base should be the base address of the continuous region
+ * of page tables.
+ * if entry-type == PG_TAB, this function must calculate where the page table of the entry
+ * exists within the specified region.
+ * this function is intended for new (unmapped) page tables & directories and must not be
+ * used on the current mmu.
+ * 
+ * @pg_base	base address of either page directory or page tables
+ * @entry	entry to add
+ * @return errno
+ **/
+extern int arch_mmu_create_new_entry(addr_t pg_base, struct mmu_entry *entry);
+extern bool arch_mmu_is_enabled(void);
+extern addr_t virt_to_phy(addr_t virt_addr);
+extern int arch_mmu_set_user_pg_dir(addr_t page_dir);
+extern int arch_mmu_create_entry(struct mmu_entry *entry);
+extern void arch_mmu_invalidate(void);
+extern size_t arch_mmu_get_user_pgtb_reg_sz(void);
+extern size_t arch_mmu_get_user_pgd_sz(void);
+extern bool arch_mmu_user_pgd_requires_alignment(void);
+extern unsigned int arch_mmu_get_user_pgd_alignment(void);
+extern addr_t arch_mmu_get_kern_vaddr(void);
 
 /* int mmu_map_page(addr_t virt_addr, addr_t phy_addr, mmu_acc_flags_t acc_flags) */
 /* int mmu_map_region(addr_t virt_addr, addr_t *phy_pages, int pg_cnt, mmu_acc_flags_t acc_flags); */

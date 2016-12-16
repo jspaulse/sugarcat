@@ -8,6 +8,7 @@
 #define ENOTSUPP	4
 #define EALIGN		5
 #define ENOTENB		6
+#define ESIZE		7
 
 
 #endif

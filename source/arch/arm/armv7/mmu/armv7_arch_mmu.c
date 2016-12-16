@@ -119,6 +119,19 @@ int arch_mmu_create_new_entry(addr_t pg_base, struct mmu_entry *entry) {
     return ret;
 }
 
+size_t arch_mmu_get_kern_pgtb_reg_sz(void) {
+    int		pg_div 	= armv7_mmu_get_pg_div();
+    size_t	ret	= 0;
+    
+    if (pg_div > 0) {
+	ret = (PGD_ENTRY_CNT - (1 << (32 - (pg_div + PGD_IDX_SHIFT)))) * PGTB_SZ;
+    } else {
+	ret = PGD_ENTRY_CNT * PGTB_SZ;
+    }
+    
+    return ret;
+}
+
 size_t arch_mmu_get_user_pgtb_reg_sz(void) {
     int		pg_div	= armv7_mmu_get_pg_div();
     size_t	ret	= 0;	
@@ -147,7 +160,7 @@ addr_t arch_mmu_get_kern_vaddr(void) {
 
 size_t arch_mmu_get_user_pgd_sz(void) {
     int		pg_div	= armv7_mmu_get_pg_div();
-    size_t	ret	= 0x0;
+    size_t	ret	= 0;
     
     if (pg_div > 0) {
 	ret = (1 << (32 - (pg_div + PGD_IDX_SHIFT))) * PGD_ENTRY_SZ;

@@ -87,6 +87,17 @@ extern void arch_mmu_invalidate(void);
 extern size_t arch_mmu_get_user_pgtb_reg_sz(void);
 
 /**
+ * arch_mmu_get_kern_pgtb_reg_sz
+ * 
+ * returns the space required (in bytes) for creating
+ * a continuous region of page tables required for mapping
+ * kernel space.
+ * @return space required (in bytes) for page tables required to map
+ * kernel address space.
+ **/
+extern size_t arch_mmu_get_kern_pgtb_reg_sz(void);
+
+/**
  * arch_mmu_get_user_pgd_sz
  * 
  * returns the size (in bytes) required for

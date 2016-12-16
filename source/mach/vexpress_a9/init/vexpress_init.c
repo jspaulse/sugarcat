@@ -24,7 +24,8 @@
 #include <arch/arm/armv7/armv7_mmu.h>
 #include <arch/arm/armv7/armv7_syscntl.h>
 #include <mach/vexpress_a9/vexpress_a9.h>
-#include <mach/mach_init.h>
+#include <mach/mach_init.h>		/* TODO: temp? */
+#include <arch/arch_mmu.h>
 #include <init/kinit.h>
 #include <util/atag.h>
 #include <util/fdt.h>
@@ -89,20 +90,20 @@ static int init_map_kern_pgtb(struct mm_reg *kern_pgtb, struct mm_reg *map_reg, 
  * and eventually branches into the kernel initialization.
  * 
  * this function:
- * performs sanity checks on the memory regions provided by atags & kernel linker
+ * performs sanity checks on the memory regions provided by either fdt or atag & kernel linker
  * moves the mmu mappings to page table mappings and maps the kernel & kernel init. regions
  * branches into the main kernel initialization
  **/
 void vexpress_init(unsigned int mach, addr_t atag_fdt_base) {
-    struct mm_resv_reg mmu_pgtb_reg	= {(((addr_t)&k_end & ~MASK_MB) + MB),
-	{((init_kvm_to_phy((addr_t)&k_end) & ~MASK_MB) + MB), MMU_PGTB_SIZE}};
+    struct mm_reg	mmu_pgtb_reg	= {((init_kvm_to_phy((addr_t)&k_end) & ~MASK_MB) + MB), MMU_PGTB_SIZE};
+    struct mm_vreg	mmu_pgtb_vreg	= {mmu_pgtb_reg.base, (((addr_t)&k_end & ~MASK_MB) + MB), mmu_pgtb_reg.size};
     struct mm_reg	mmu_pgd_reg	= {(addr_t)&k_pgd, MMU_KPGD_SIZE};
     struct mm_reg	kstack_reg	= {(init_kvm_to_phy((addr_t)&k_stack)) - PG_SZ, PG_SZ};
     struct mm_reg	kinit_reg	= {init_kvm_to_phy((addr_t)&hmi_start), ((size_t)&hmi_end - (size_t)&hmi_start)};
     struct mm_reg	kern_reg	= {init_kvm_to_phy((addr_t)&k_start), ((size_t)&k_end - (size_t)&k_start)};
     struct mm_reg	initrd_reg	= {0, 0};
     struct mm_reg	mem_reg 	= {0, 0};
-    bool		initrd_ex	= false;
+    //bool		initrd_ex	= false;
     int			err		= 0;
     
     /* debug */
@@ -115,9 +116,13 @@ void vexpress_init(unsigned int mach, addr_t atag_fdt_base) {
 	mach_init_printf("kernel stack: 0x%x, %i bytes\n", kstack_reg.base, kstack_reg.size);
 	mach_init_printf("mmu page dir reg: 0x%x - 0x%x, %i bytes\n",
 	    mmu_pgd_reg.base, mmu_pgd_reg.base + mmu_pgd_reg.size, mmu_pgd_reg.size);
-	mach_init_printf("mmu page table reg: 0x%x - 0x%x, %i bytes\n", mmu_pgtb_reg.phy.base,
-	    mmu_pgtb_reg.phy.base + mmu_pgtb_reg.phy.size, mmu_pgtb_reg.phy.size);
+	mach_init_printf("mmu page table reg: 0x%x - 0x%x, %i bytes\n", mmu_pgtb_reg.base,
+	    mmu_pgtb_reg.base + mmu_pgtb_reg.size, mmu_pgtb_reg.size);
     #endif
+    
+    fdt_convert_endian(atag_fdt_base);
+    
+    mach_init_printf("memr(0x61001000): 0x%x\n", memr(0x61001000));
     
     /* TODO: tmp */
     install_ivt();
@@ -131,17 +136,18 @@ void vexpress_init(unsigned int mach, addr_t atag_fdt_base) {
     #ifdef CONFIG_INIT_DEBUG
 	if (is_using_fdt(atag_fdt_base)) {
 	    mach_init_printf("using fdt, base 0x%x\n", atag_fdt_base);
-	} else if (is_using_atag(fdt_base)) {
+	} else if (is_using_atag(atag_fdt_base)) {
 	    mach_init_printf("using atag, base 0x%x\n", atag_fdt_base);
 	}
     #endif
     
+
     /* grab the largest continuous region of memory */
     if ((err = init_get_mem(atag_fdt_base, &mem_reg)) != ESUCC) {
 	kinit_panic(buf, "init_get_mem() returned %i, no defined memory regions available.", err);
-    } else if (mem_reg.size <= (kern_reg.size + kinit_reg.size + mmu_pgtb_reg.phy.size)) {
+    } else if (mem_reg.size <= (kern_reg.size + kinit_reg.size + mmu_pgtb_reg.size)) {
 	kinit_panic(buf, "not enough memory in region!  init_get_mem() returned %i bytes \
-	    in largest found region, a minimum of %i bytes are required.", mem_reg.size, kinit_reg.size + kern_reg.size + mmu_pgtb_reg.phy.size);
+	    in largest found region, a minimum of %i bytes are required.", mem_reg.size, kinit_reg.size + kern_reg.size + mmu_pgtb_reg.size);
     }
 	
     /* check if initrd exists */
@@ -149,68 +155,70 @@ void vexpress_init(unsigned int mach, addr_t atag_fdt_base) {
 	if ((err = init_get_initrd(atag_fdt_base, &initrd_reg)) != 0) {
 	    kinit_warn(buf, "tag_exists(ATAG_INITRD2) returned true but init_get_initrd() returned %i; \
 		assuming it doesn't exist.", err);
-	    initrd_ex = false;
+	    //initrd_ex = false;
 	} else if (initrd_reg.size == 0) {
 	    kinit_warn(buf, "ATAG_INITRD2 exists but reports initrd.size == %i; \
 		assuming it doesn't exist.", initrd_reg.size);
-	    initrd_ex = false;
+	    //initrd_ex = false;
 	} else {
-	    initrd_ex = true;
+	    //initrd_ex = true;
 	}
     }
     
-    /* sanity check on kernel region */
+    /*
+    sanity check on kernel region
     if (!is_within_region(&mem_reg, &kern_reg)) {
 	kinit_warn(buf, "is_within_region() reports kernel region is not in largest found memory region; \
 	    k_base: 0x%x, k_size: %i, m_base: 0x%x, m_size: %i.", kern_reg.base, kern_reg.size, mem_reg.base, mem_reg.size);
     } 
     
-    /* sanity check on kinit region */
+    sanity check on kinit region
     if (!is_within_region(&mem_reg, &kinit_reg)) {
 	kinit_warn(buf, "is_within_region() reports kernel init region is not in largest found memory region; \
 	    kinit_base: 0x%x, kinit_size: %i, m_base: 0x%x, m_size %i.", kinit_reg.base, kinit_reg.size, mem_reg.base, mem_reg.size);
     }
 	
-    /* check if mmu pte is in sane region */
+    check if mmu pte is in sane region
     if (!is_within_region(&mem_reg, &mmu_pgtb_reg.phy)) {
 	kinit_warn(buf, "is_within_region() reports mmu_pgtb region is not in largest found memory region; \
 	    pgtb_base: 0x%x, pgtb_size: %i, m_base: 0x%x, m_size: %i.", mmu_pgtb_reg.phy.base, mmu_pgtb_reg.phy.size, mem_reg.base, mem_reg.size);
     }
 	
-    /* check if overlapping with initrd */
+    check if overlapping with initrd
     if (initrd_ex && is_overlapping(&initrd_reg, &mmu_pgtb_reg.phy)) {
 	kinit_warn(buf, "is_overlapping() reports mmu_pgtb is overlapping the initrd; pgtb_base: 0x%x, pgtb_size: %i, \
 	    initrd_base: 0x%x, initrd_size: %i.", mmu_pgtb_reg.phy.base, mmu_pgtb_reg.phy.size, initrd_reg.base, initrd_reg.size);
     }
+    */
     
     /* clean (invalidate) pgtb region */
-    memset((void *)mmu_pgtb_reg.phy.base, 0, mmu_pgtb_reg.phy.size);
+    memset((void *)mmu_pgtb_reg.base, 0, mmu_pgtb_reg.size);
     
     /* tmp */
     install_ivt();
     
     /* map kernel init */
-    if ((err = init_map_kern_pgtb(&mmu_pgtb_reg.phy, &kinit_reg, &kdef_ent)) != ESUCC) {
-	kinit_warn(buf, "init_map_kern_pgtb(kinit_reg) failed wit %i.", err);
+    if ((err = init_map_kern_pgtb(&mmu_pgtb_reg, &kinit_reg, &kdef_ent)) != ESUCC) {
+	kinit_warn(buf, "init_map_kern_pgtb(kinit_reg) failed with %i.", err);
     }
     
     /* map kernel */
-    if ((err = init_map_kern_pgtb(&mmu_pgtb_reg.phy, &kern_reg, &kdef_ent)) != ESUCC) {
+    if ((err = init_map_kern_pgtb(&mmu_pgtb_reg, &kern_reg, &kdef_ent)) != ESUCC) {
 	kinit_warn(buf, "init_map_kern_pgtb(kern_reg) failed with %i.", err);
     }
     
     /* map kernel stack */
-    if ((err = init_map_kern_pgtb(&mmu_pgtb_reg.phy, &kstack_reg, &kdef_ent)) != ESUCC) {
+    if ((err = init_map_kern_pgtb(&mmu_pgtb_reg, &kstack_reg, &kdef_ent)) != ESUCC) {
 	kinit_warn(buf, "init_map_kern_pgtb(kstack_reg) failed with %i.", err);
     }
     
     /* map kernel pgtb */
-    if ((err = init_map_kern_pgtb(&mmu_pgtb_reg.phy, &mmu_pgtb_reg.phy, &kdef_ent)) != ESUCC) {
+    if ((err = init_map_kern_pgtb(&mmu_pgtb_reg, &mmu_pgtb_reg, &kdef_ent)) != ESUCC) {
 	kinit_warn(buf, "init_map_kern_pgtb(mmu_pgtb_reg) failed with %i.", err);
     }
     
     /* map kernel pgd */
-    if ((err = init_map_kern_pgtb(&mmu_pgtb_reg.phy, &mmu_pgd_reg, &kdef_ent)) != ESUCC) {
+    if ((err = init_map_kern_pgtb(&mmu_pgtb_reg, &mmu_pgd_reg, &kdef_ent)) != ESUCC) {
 	kinit_warn(buf, "init_map_kern_pgtb(mmu_pgd_reg) failed with %i.", err);
     }
     
@@ -221,7 +229,7 @@ void vexpress_init(unsigned int mach, addr_t atag_fdt_base) {
     dsb();
     
     /* create pgd->pgtb mapping for kernel regions */
-    if ((err = init_setup_kern_pgtb(&mmu_pgd_reg, &mmu_pgtb_reg.phy, &kdef_ent)) != ESUCC) {
+    if ((err = init_setup_kern_pgtb(&mmu_pgd_reg, &mmu_pgtb_reg, &kdef_ent)) != ESUCC) {
 	kinit_panic(buf, "init_setup_kern_pgtb() failed with %i; nothing left to do.", err);
     }
     
@@ -239,7 +247,7 @@ void vexpress_init(unsigned int mach, addr_t atag_fdt_base) {
     move_high_sp();
     
     /* branch into kernel init */
-    kernel_init(mach, atag_fdt_base, &mmu_pgtb_reg, NULL, 0);
+    kernel_init(mach, atag_fdt_base, &mmu_pgtb_vreg, NULL, 0);
 }
 
 /**
@@ -286,8 +294,6 @@ static int init_get_mem(addr_t atag_fdt_base, struct mm_reg *reg) {
     return ret;
 }
 
-
-
 /**
  * init_get_initrd
  * 
@@ -298,8 +304,8 @@ static int init_get_mem(addr_t atag_fdt_base, struct mm_reg *reg) {
  * @return errno
  **/
 static int init_get_initrd(addr_t atag_base, struct mm_reg *reg) {
-    struct atag 	*sch	= NULL;
-    int 		ret 	= 0;
+    struct atag *sch	= NULL;
+    int 	ret 	= 0;
 	
     if (reg != NULL) {
 	sch = get_tag(atag_base, ATAG_INITRD2);
@@ -322,12 +328,21 @@ static int init_get_initrd(addr_t atag_fdt_base, struct mm_reg *reg) {
     int	ret	= ESUCC;
     
     if (reg != NULL) {
-	if (
+	if (is_using_fdt(atag_fdt_base)) {
+	    
     } else {
 	ret = EINVAL;
     }
     
     return ret;
+}
+
+static int init_get_fdt_initrd(addr_t fdt_base, struct mm_reg *reg) {
+    return 0;
+}
+
+static int init_get_atag_initrd(addr_t fdt_base, struct mm_reg *reg) {
+    return 0;
 }
 */
 
@@ -440,7 +455,6 @@ static int init_map_kern_pgtb(struct mm_reg *kern_pgtb, struct mm_reg *map_reg, 
     
     return ret;
 }
-
 
 /**
  * move_high_sp
