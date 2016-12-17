@@ -120,12 +120,10 @@ void vexpress_init(unsigned int mach, addr_t atag_fdt_base) {
 	    mmu_pgtb_reg.base + mmu_pgtb_reg.size, mmu_pgtb_reg.size);
     #endif
     
-    fdt_convert_endian(atag_fdt_base);
-    
-    mach_init_printf("memr(0x61001000): 0x%x\n", memr(0x61001000));
-    
     /* TODO: tmp */
     install_ivt();
+    
+    fdt_convert_endian(atag_fdt_base);
     
     /* we're not provided with anything for init; panic */
     if (!is_using_fdt(atag_fdt_base) && !is_using_atag(atag_fdt_base)) {

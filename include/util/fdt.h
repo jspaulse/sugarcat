@@ -92,7 +92,39 @@ inline bool is_using_fdt(addr_t fdt_base) {
 /* fdt_get_node(const char *name, addr_t fdt_base) */
     /* if strlen(name) == 0, root node */
 /* fdt_get_property(struct fdt_node *, char *property); */
+/* fdt_get_string(addr_t fdt_base, addr_t offset); */
 
+/**
+ * fdt_get_string
+ * 
+ * returns the string based on the offset
+ * @fdt_base	base address of fdt
+ * @offset	offset
+ * @return string
+ **/
+inline const char *fdt_get_string(addr_t fdt_base, addr_t offset) {
+    struct fdt_header	*head	= (struct fdt_header *)fdt_base;
+    addr_t		str_off	= 0x0;
+    const char 		*ret 	= NULL;
+    
+    if (is_using_fdt(fdt_base)) {
+	str_off = fdt_base + be32_to_cpu(head->dt_strings_offset);
+	
+	/* basically, as long as we fall within the strings block */
+	if ((str_off + offset) <= (str_off + be32_to_cpu(head->dt_strings_sz))) {
+	    ret = (const char *)(str_off + offset);
+	}
+    }
+    
+    return ret;
+}
+	
+    
+    
+    
+    //string_off	= fdt_base + head->dt_strings_offset
+    /
+    
 /**
  * fdt_get_root_node
  * 
@@ -161,6 +193,7 @@ inline int fdt_convert_endian(addr_t fdt_base) {
 	    } else if (tag == FDT_PROP) {
 		struct fdt_property *prop = (struct fdt_property *)node;
 		unsigned int *ptr = (unsigned int *)((addr_t)prop + sizeof(struct fdt_property));
+		
 		char *str = NULL;
 		
 		/* convert */
@@ -173,10 +206,10 @@ inline int fdt_convert_endian(addr_t fdt_base) {
 		} else if (strcmp(str, "#size-cells") == 0) {
 		    mach_init_printf("%s%s = <0x%x>\n", tabs, str, be32_to_cpu(*ptr));
 		} else if (strcmp(str, "reg") == 0) {
-		    mach_init_printf("%s %s = <0x%x 0x%x>\n", tabs, str, be32_to_cpu(*ptr), be32_to_cpu(*ptr + 1));
-		    mach_init_printf("%i\n", (be32_to_cpu(*ptr + 1) - be32_to_cpu(*ptr)) / 0x100000);
+		    mach_init_printf("%s %s = <0x%x 0x%x>\n", tabs, str, be32_to_cpu(*ptr), be32_to_cpu(*(ptr + 1)));
+		    mach_init_printf("prop->len: %i\n", prop->length);
 		} else if (strcmp(str, "linux,initrd-end") == 0) {
-		    mach_init_printf("%s %s = <0x%x 0x%x>\n", tabs, str, be32_to_cpu(*ptr), be32_to_cpu(*ptr + 1));
+		    mach_init_printf("%s %s = <0x%x 0x%x>\n", tabs, str, be32_to_cpu(*ptr), be32_to_cpu(*(ptr + 1)));
 		} else {
 		    mach_init_printf("%s%s = %s\n", tabs, str, prop->data);
 		}
@@ -217,8 +250,5 @@ inline int fdt_convert_endian(addr_t fdt_base) {
     
     return ret;
 }
-
-
-
 
 #endif

@@ -5,16 +5,16 @@
     compatible = "nope,nope", "less,nup";
     #address-cells = <0x1>;
     #size-cells = <0x1>;
-
-    memory {
-	reg = <0x60000000 0x10000000>;
-    };
     
     chosen {
 	bootargs = "derp,derp mutha derp";
     };
-	
-    derp@0x100000 {
+    
+    memory {
+	reg = <0x60000000 0x10000000>;
+    };
+    
+    derp@0x0 {
 	derpderp = "moar derp";
     };
 };
