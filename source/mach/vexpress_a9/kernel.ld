@@ -66,7 +66,7 @@ SECTIONS {
      * this is where the majority of the kernel resides 
      */
     . = kv_start + (lmi_end - kp_start);
-    
+
     /*
      * init region of main kernel;
      * this exists in high memory but will be consumed
@@ -102,7 +102,7 @@ SECTIONS {
     .data : { *(.data*) } 
     .bss : { 
 	k_bss_start 	= .;
-	*(.bss*) 
+	*(.bss .bss.* COMMON) 
 	k_bss_end	= .;
     }
 	
