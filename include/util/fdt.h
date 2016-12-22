@@ -14,8 +14,6 @@ typedef uint64_t fdt64_t;
 #define FDT_PROP		0x3
 #define FDT_NOP			0x4
 #define FDT_END			0x9
-#define FDT_ALIGN(x, a)         (((x) + (a) - 1) & ~((a) - 1))
-#define ALIGN_UP(addr, align)	((addr + (align - 1)) & ~((align - 1)))
 
 /**
  * fdt_header
@@ -88,167 +86,13 @@ inline bool is_using_fdt(addr_t fdt_base) {
     return ret;
 }
 
-/* fdt_get_next_node(struct fdt_node *curr); */
-/* fdt_get_node(const char *name, addr_t fdt_base) */
-    /* if strlen(name) == 0, root node */
-/* fdt_get_property(struct fdt_node *, char *property); */
-/* fdt_get_string(addr_t fdt_base, addr_t offset); */
-
-/**
- * fdt_get_string
- * 
- * returns the string based on the offset
- * @fdt_base	base address of fdt
- * @offset	offset
- * @return string
- **/
-inline const char *fdt_get_string(addr_t fdt_base, addr_t offset) {
-    struct fdt_header	*head	= (struct fdt_header *)fdt_base;
-    addr_t		str_off	= 0x0;
-    const char 		*ret 	= NULL;
-    
-    if (is_using_fdt(fdt_base)) {
-	str_off = fdt_base + be32_to_cpu(head->dt_strings_offset);
-	
-	/* basically, as long as we fall within the strings block */
-	if ((str_off + offset) <= (str_off + be32_to_cpu(head->dt_strings_sz))) {
-	    ret = (const char *)(str_off + offset);
-	}
-    }
-    
-    return ret;
-}
-	
-    
-    
-    
-    //string_off	= fdt_base + head->dt_strings_offset
-    /
-    
-/**
- * fdt_get_root_node
- * 
- * returns the root node of the flattended device tree
- * 
- * @fdt_base	base address of the fdt
- * @return root node or null if not found
- **/
-inline struct fdt_node *fdt_get_root_node(addr_t fdt_base) {
-    struct fdt_node 	*ret	= NULL;
-    struct fdt_header	*head	= (struct fdt_header *)fdt_base;
-    
-    /* ensure it's actually fdt */
-    if (is_using_fdt(fdt_base)) {
-	ret = (struct fdt_node *)(fdt_base + be32_to_cpu(head->dt_struct_offset));
-    }
-    
-    return ret;
-}
-/**
- * fdt_convert_endian
- * 
- * converts the flattened device tree into little endian
- * @dt_base	base address of the device tree
- * @return errno
- **/
-inline int fdt_convert_endian(addr_t fdt_base) {
-    struct fdt_header	*head		= NULL;
-    struct fdt_node	*node		= NULL;
-    int			ret 		= ESUCC;
-    fdt32_t		tag		= 0x0;
-    addr_t		struct_off	= 0x0;
-    addr_t		string_off	= 0x0;
-    size_t		t_size		= 0;
-    
-    /* ensure it's actually fdt */
-    if (is_using_fdt(fdt_base)) {
-	memconvle32((void *)fdt_base, sizeof(struct fdt_header)); /* convert the fdt_header */
-	
-	/* assign & calculate */
-	head 		= (struct fdt_header *)fdt_base;
-	struct_off	= fdt_base + head->dt_struct_offset;
-	string_off	= fdt_base + head->dt_strings_offset;
-	node		= (struct fdt_node *)struct_off;
-	
-	char tabs[16];
-	
-	do {
-	    tag	= be32_to_cpu(node->tag);
-	    
-	    if (tag == FDT_BEGIN_NODE) {
-		size_t len = strlen(tabs);
-		t_size = (sizeof(struct fdt_node) + (strlen(node->data) + 1));
-		
-		if (strlen(node->data) > 0) {
-		    mach_init_printf("%s%s {\n", tabs, node->data);
-		    tabs[len] = '\t';
-		    tabs[len + 1] = '\0';
-		} else {
-		    mach_init_printf("{\n");
-		    tabs[len] = '\t';
-		    tabs[len + 1] = '\0';
-		}
-		
-		//mach_init_printf("FDT_BEGIN_NODE 0x%x, node->data: %s\n", (addr_t)node - fdt_base, node->data);
-	    } else if (tag == FDT_PROP) {
-		struct fdt_property *prop = (struct fdt_property *)node;
-		unsigned int *ptr = (unsigned int *)((addr_t)prop + sizeof(struct fdt_property));
-		
-		char *str = NULL;
-		
-		/* convert */
-		memconvle32(prop, sizeof(struct fdt_property));
-
-		str = (char *)string_off + prop->name_offset;
-		
-		if (strcmp(str, "#address-cells") == 0) {
-		    mach_init_printf("%s%s = <0x%x>\n", tabs, str, be32_to_cpu(*ptr));
-		} else if (strcmp(str, "#size-cells") == 0) {
-		    mach_init_printf("%s%s = <0x%x>\n", tabs, str, be32_to_cpu(*ptr));
-		} else if (strcmp(str, "reg") == 0) {
-		    mach_init_printf("%s %s = <0x%x 0x%x>\n", tabs, str, be32_to_cpu(*ptr), be32_to_cpu(*(ptr + 1)));
-		    mach_init_printf("prop->len: %i\n", prop->length);
-		} else if (strcmp(str, "linux,initrd-end") == 0) {
-		    mach_init_printf("%s %s = <0x%x 0x%x>\n", tabs, str, be32_to_cpu(*ptr), be32_to_cpu(*(ptr + 1)));
-		} else {
-		    mach_init_printf("%s%s = %s\n", tabs, str, prop->data);
-		}
-		
-		//mach_init_printf("prop->len: %i\n", prop->length);
-		
-		//mach_init_printf("FDT_PROP 0x%x, prop->length %i, prop->offset: 0x%x\n", (addr_t)node - fdt_base, prop->length, (prop->name_offset + head->dt_strings_offset));
-		//mach_init_printf("%s -> %s\n", str, prop->data);
-		
-		t_size = sizeof(struct fdt_property) + prop->length;
-	    } else if (tag == FDT_END_NODE || tag == FDT_END || tag == FDT_NOP) {
-		t_size = sizeof(struct fdt_node);
-		
-
-		if (tag == FDT_END_NODE) {
-		    tabs[strlen(tabs) - 1] = '\0';
-		    //mach_init_printf("FDT_END_NODE 0x%x\n", (addr_t)node - fdt_base);
-		    mach_init_printf("%s};\n", tabs);
-		} else if (tag == FDT_NOP) {
-		    //mach_init_printf("FDT_NOP 0x%x\n", (addr_t)node - fdt_base);
-		} else {
-		    //mach_init_printf("FDT_END 0x%x\n", (addr_t)node - fdt_base);
-		}
-	    } else {	/* invalid tag */
-		mach_init_printf("fdt_convert_endian - invalid tag 0x%x\n", tag);
-		ret = EINVAL;
-		break;
-	    }
-
-	    /* convert tag */
-
-	    node->tag 	= tag;
-	    node 	= (struct fdt_node *)ALIGN_UP((addr_t)node + t_size, 4);
-	} while (tag != FDT_END);
-    } else {
-	ret = EINVAL;
-    }
-    
-    return ret;
-}
+/* fdt.c */
+struct fdt_property *fdt_get_property(addr_t fdt_base, struct fdt_node *node, const char *property);
+struct fdt_property *fdt_get_next_property(struct fdt_property *prop);
+struct fdt_node *fdt_get_node(const char *name, addr_t fdt_base);
+struct fdt_node *fdt_get_next_node(struct fdt_node *node);
+struct fdt_node *fdt_get_root_node(addr_t fdt_base);
+fdt32_t fdt_get_cell_size(addr_t fdt_base, struct fdt_node *node);
+void dump_fdt(addr_t fdt_base); /* todo - tmp */
 
 #endif
