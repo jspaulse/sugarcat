@@ -98,6 +98,18 @@ extern size_t arch_mmu_get_user_pgtb_reg_sz(void);
 extern size_t arch_mmu_get_kern_pgtb_reg_sz(void);
 
 /**
+ * arch_mmu_get_pgtb_alignment
+ * 
+ * returns the required alignment of a page table
+ * this function must return the alignment in bytes,
+ * i.e., for a 4KiB alignment, the function should return
+ * 0x100 or 4096
+ * 
+ * @return required pgtb alignment
+ **/
+extern unsigned int arch_mmu_get_pgtb_alignment(void);
+
+/**
  * arch_mmu_get_user_pgd_sz
  * 
  * returns the size (in bytes) required for

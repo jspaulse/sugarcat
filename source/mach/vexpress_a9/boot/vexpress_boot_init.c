@@ -18,12 +18,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#include <mach/vexpress_a9/vexpress_a9.h>
 #include <arch/arm/armv7/armv7_mmu.h>
 #include <arch/arm/armv7/armv7_syscntl.h>
 #include <arch/arm/armv7/armv7.h>
+#include <memlayout.h>
 #include <mm/mem.h>
-#include <linker.h>
 #include <types.h>
 #include <stddef.h>
 
@@ -36,6 +35,10 @@ static void init_kern_pg_dir(addr_t k_phy_pg_dir, addr_t k_phy_start, size_t k_s
 static void init_pg_dir_entry(addr_t *pg_dir, addr_t phy_addr, addr_t virt_addr);
 static void init_enable_mmu(void);
 
+/* TODO: tmp */
+extern void kernel_init(unsigned int, addr_t, void *, void *, int);
+//extern void kernel_init(unsigned int mach, addr_t atag_fdt_base, struct mm_vreg *mmu_pgtb_reg, struct mm_vreg *reserved_regs, int reg_cnt);
+
 /**
  * vexpress_boot_init
  * 
@@ -43,9 +46,9 @@ static void init_enable_mmu(void);
  * mmu to move sp to high memory and branch into actual initialization
  * in vexpress_init
  **/
-void vexpress_boot_init(unsigned int r0, int mach, addr_t atag_dt_base) {
+void vexpress_boot_init(unsigned int r0, int mach, addr_t atag_fdt_base) {
     size_t bss_sz 	= (size_t)&lmi_bss_end - (size_t)&lmi_bss_start;
-    size_t k_sz		= (size_t)init_kvm_to_phy((addr_t)&k_end) - (size_t)&lmi_start;
+    size_t k_sz		= (size_t)kvm_to_phy((addr_t)&k_end) - (size_t)&lmi_start;
     
     /* clean bss */
     memset(&lmi_bss_start, 0, bss_sz);
@@ -65,7 +68,11 @@ void vexpress_boot_init(unsigned int r0, int mach, addr_t atag_dt_base) {
     init_enable_mmu();
     
     /* branch to main initialization code */
-    vexpress_init(mach, atag_dt_base);
+    //vexpress_init(mach, atag_dt_base);
+    kernel_init(mach, atag_fdt_base, NULL, NULL, 0);
+    //void kernel_init(unsigned int mach, addr_t atag_fdt_base, 
+    //struct mm_vreg *mmu_pgtb_reg, struct mm_vreg *reserved_regs, 
+    //int reg_cnt) {
 }
 
 /**
@@ -135,7 +142,7 @@ static void init_kern_pg_dir(addr_t k_phy_pg_dir, addr_t k_phy_start, size_t k_s
 	addr_t p_addr = k_phy_start + (i << DIV_MULT_MB);
 		
 	/* map kernel sections in high mem */
-	init_pg_dir_entry(pg_dir, p_addr, init_phy_to_kvm(p_addr));
+	init_pg_dir_entry(pg_dir, p_addr, phy_to_kvm(p_addr));
     }
 	
     dsb();

@@ -3,18 +3,14 @@
 / {
     model = "Test,Test";
     compatible = "nope,nope", "less,nup";
-    #address-cells = <0x1>;
-    #size-cells = <0x1>;
+    #address-cells = <1>;
+    #size-cells = <1>;
     
     chosen {
 	bootargs = "derp,derp mutha derp";
     };
-    
-    memory {
-	reg = <0x60000000 0x10000000>;
-    };
-    
-    derp@0x0 {
-	derpderp = "moar derp";
+
+    memory@0x60000000 {
+	reg = <0x60000000 0xFFFFFFFF>;
     };
 };

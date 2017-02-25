@@ -18,9 +18,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#include <mach/mach_init.h>
 #include <arch/arm/armv7/armv7.h>
 #include <arch/arm/armv7/armv7_syscntl.h>
+#include <mach/mach.h> /* TODO: tmp */
 
 extern void armv7_irq_hand(void);
 extern void armv7_undef_hand(void);
@@ -68,14 +68,14 @@ void install_ivt(void) {
 }
 
 void dump_undef_except(unsigned int addr) {
-	mach_init_printf("[ERROR] Undefined Instruction at 0x%x\n", addr);
+	mach_early_kprintf("[ERROR] Undefined Instruction at 0x%x\n", addr);
 }
 
 void dump_data_abt(unsigned int addr) {
 	unsigned int type = 0;
 	
 	asm volatile ("mrc p15, 0, %0, c5, c0, 0\n" : "=r" (type));
-	mach_init_printf("[ERROR] Data Abort at 0x%x, reason: 0x%x\n", addr, type);
+	mach_early_kprintf("[ERROR] Data Abort at 0x%x, reason: 0x%x\n", addr, type);
 	
 	while(1);
 }
@@ -85,8 +85,8 @@ void dump_pref_abt(unsigned int addr) {
 	
 	asm volatile("mrc p15, 0, %0, c5, c0, 1" : "=r" (type));
 	
-	mach_init_printf("[ERROR] Prefetch Abort at 0x%x, FSR[10]: 0x%x, FSR[3:0]: 0x%x\n", addr, ((type >> 10) & 0x1), type & 0xF);
-	mach_init_printf("register: 0x%x\n", type);
+	mach_early_kprintf("[ERROR] Prefetch Abort at 0x%x, FSR[10]: 0x%x, FSR[3:0]: 0x%x\n", addr, ((type >> 10) & 0x1), type & 0xF);
+	mach_early_kprintf("register: 0x%x\n", type);
 	
 }
 

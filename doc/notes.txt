@@ -1,5 +1,7 @@
-TODO:
-	Fixup domain accesses
+In order to port to 64 bit, few things must be fixed:
+Odds are, util/fdt would be broken for 64 bit
+memlayout.h/c:
+functions utilize fdt32_t
 
 Things that need to be set prior to MMU
 Domain (Read below)

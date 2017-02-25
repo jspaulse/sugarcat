@@ -26,6 +26,9 @@
 #include <mm/mmu.h>
 #include <stdbool.h>
 
+/* constant */
+#define MMU_PG_SZ	4096
+
 static armv7_mmu_acc_perm arch_mmu_acc_to_armv7(mmu_acc_flags_t flags);
 static armv7_mmu_pgd_type arch_mmu_pgd_type_to_armv7(mmu_entry_type_t type);
 static armv7_mmu_pgtb_type arch_mmu_pgtb_type_to_armv7(mmu_entry_type_t type);
@@ -46,7 +49,7 @@ int arch_mmu_set_user_pg_dir(addr_t page_dir) {
 int arch_mmu_create_entry(struct mmu_entry *entry) {
     struct armv7_mmu_pgd_entry 	armv7_pgd_entry;
     struct armv7_mmu_pgtb_entry armv7_pgtb_entry;
-    int				ret	= 0;
+    int				ret = 0;
     
     /* create based on type */
     switch (entry->type) {
@@ -181,6 +184,10 @@ unsigned int arch_mmu_get_user_pgd_alignment(void) {
 
 void arch_mmu_invalidate(void) {
     armv7_invalidate_unified_tlb();
+}
+
+unsigned int arch_mmu_get_pgtb_alignment() {
+    return MMU_PG_SZ;
 }
 
 /**

@@ -2,7 +2,8 @@
 #
 # this is the main source file for the kernel
 
-MM = mm/
+MM 		= mm/
+INIT	= init/
 
 PASS_FLAGS 	= 'ARCH=$(ARCH)' BUILD='$(BUILD)' CFLAGS='$(CFLAGS)' AFLAGS='$(AFLAGS)'
 PASS_FLAGS	+= GNU_TOOLS='$(GNU_TOOLS)' MACH='$(MACH)' CPU='$(CPU)'

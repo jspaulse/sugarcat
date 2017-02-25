@@ -174,7 +174,7 @@ static int mmu_create_pgtb_entry(addr_t virt_addr, addr_t phy_addr, mmu_acc_flag
  * if entry->type == PG_DIR, pg_base should be the base address of the page directory.
  * if entry->type == PG_TAB, pg_base should be the base address of the continuous region
  * of page tables.
- * if entry-type == PG_TAB, this function must calculate where the page table of the entry
+ * if entry->type == PG_TAB, this function must calculate where the page table of the entry
  * exists within the specified region.
  * this function is intended for new (unmapped) page tables & directories and must not be
  * used on the current mmu.
@@ -183,13 +183,14 @@ static int mmu_create_pgtb_entry(addr_t virt_addr, addr_t phy_addr, mmu_acc_flag
  * @entry	entry to add
  * @return errno
  **/
-extern int arch_mmu_create_new_entry(addr_t pg_base, struct mmu_entry *entry);
 extern bool arch_mmu_is_enabled(void);
 extern addr_t virt_to_phy(addr_t virt_addr);
 extern int arch_mmu_set_user_pg_dir(addr_t page_dir);
 extern int arch_mmu_create_entry(struct mmu_entry *entry);
+extern int arch_mmu_create_new_entry(addr_t pg_base, struct mmu_entry *entry);
 extern void arch_mmu_invalidate(void);
 extern size_t arch_mmu_get_user_pgtb_reg_sz(void);
+extern size_t arch_mmu_get_kern_pgtb_reg_sz(void);
 extern size_t arch_mmu_get_user_pgd_sz(void);
 extern bool arch_mmu_user_pgd_requires_alignment(void);
 extern unsigned int arch_mmu_get_user_pgd_alignment(void);

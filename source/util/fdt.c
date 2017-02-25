@@ -18,7 +18,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#include <mach/mach_init.h> /* TODO: tmp */
+#include <mach/mach.h> /* TODO: tmp */
 #include <util/fdt.h>
 #include <util/bits.h>
 #include <util/str.h>
@@ -282,9 +282,9 @@ void dump_fdt(addr_t fdt_base) {
 	    size_t sz = strlen(tabs);
 	    
 	    if (strlen(node->data) > 0) {
-		mach_init_printf("%s%s {\n", tabs,  node->data);
+		mach_early_kprintf("%s%s {\n", tabs,  node->data);
 	    } else {
-		mach_init_printf("/ {\n");
+		mach_early_kprintf("/ {\n");
 	    }
 	    
 	    tabs[sz] = '\t';
@@ -293,15 +293,15 @@ void dump_fdt(addr_t fdt_base) {
 	} else if (tag == FDT_END_NODE) {
 	    tabs[strlen(tabs) - 1] = '\0';
 	    
-	    mach_init_printf("%s};\n", tabs);
+	    mach_early_kprintf("%s};\n", tabs);
 	} else if (tag == FDT_PROP) {
 	    const char *prop_str = NULL;
 	    
 	    prop 	= (struct fdt_property *)node;
-	    prop_str	= fdt_get_string(fdt_base,
+	    prop_str	= fdt_get_string(fdt_base, 
 		be32_to_cpu(prop->name_offset));
 	    
-	    mach_init_printf("%s%s\n", tabs, prop_str);
+	    mach_early_kprintf("%s%s\n", tabs, prop_str);
 	}
 	
 	node = fdt_get_next_tag(node);

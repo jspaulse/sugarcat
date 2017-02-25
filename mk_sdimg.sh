@@ -1,6 +1,6 @@
 #!/bin/sh
 FILE="sd.bin"
-F_SZ=64M
+F_SZ=32M
 BOOT_SZ=16MiB
 
 # create the file

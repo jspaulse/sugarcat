@@ -28,3 +28,8 @@ arch_dsb:
 arch_dmb:
     dmb
     bx lr
+
+.global arch_set_sp
+arch_set_sp:
+    mov r0, sp
+    bx lr

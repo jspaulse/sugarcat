@@ -20,6 +20,30 @@
     sysbus_create_simple("pl031", map[VE_RTC], pic[4]); /* RTC */
     sysbus_create_simple("pl111", map[VE_CLCD], pic[14]);
     lan9118_init(&nd_table[0], map[VE_ETHERNET], pic[15]);
+
+kernel:
+    create a memory layout interface which (utilizing kernel.ld & the fdt)
+    can provide a detai layout about where things are & where things are 
+    allocated in memory.
+    
+    
+Vexpress:
+    Move all of the mmu init into kernel_init
+mmu:
+    Create functions for initializing/creating mmu_pgtbs
+	All this requires is taking the kernel region, dividing
+	    by page size (into page_cnt) & creating entry per
+	    pg_cnt;
+	
+	    allocate space (1MiB above kernel, ALIGN_UP(1MiB Above kernel,
+		arch_mmu_get_pgtb_align()));
+	    arch_mmu_map_new(pgtbs, ...);
+	    arch_mmu_map_new_pgtbs_pgdir(pgtbs, pgdir);
+	keep track of this region, we'll need to pass to PMM
+	    
+	
+Kernel:
+    Map dis-continuous regions into memory
     
 development flow (short term):
     spinlocks

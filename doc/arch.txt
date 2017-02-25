@@ -1,0 +1,19 @@
+arch functionality that must be provided:
+
+arch_mmu.h:
+extern bool arch_mmu_is_enabled(void);
+extern addr_t virt_to_phy(addr_t virt_addr);
+extern int arch_mmu_set_user_pg_dir(addr_t page_dir);
+extern int arch_mmu_create_entry(struct mmu_entry *entry);
+extern int arch_mmu_create_new_entry(addr_t pg_base, struct mmu_entry *entry);
+extern void arch_mmu_invalidate(void);
+extern size_t arch_mmu_get_user_pgtb_reg_sz(void);
+extern size_t arch_mmu_get_kern_pgtb_reg_sz(void);
+extern unsigned int arch_mmu_get_pgtb_alignment(void);
+extern size_t arch_mmu_get_user_pgd_sz(void);
+extern bool arch_mmu_user_pgd_requires_alignment(void);
+extern unsigned int arch_mmu_get_user_pgd_alignment(void);
+extern addr_t arch_mmu_get_kern_vaddr(void);
+
+arch_reg.h:
+    arch_set_sp(addr_t address);

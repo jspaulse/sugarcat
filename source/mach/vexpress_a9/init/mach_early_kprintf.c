@@ -23,66 +23,70 @@
 #include <mm/mem.h>
 #include <util/str.h>
 
-#define UART0_BASE_ADDRESS		0x10009000
+#define UART0_BASE_ADDRESS	0x10009000
 //#define UART0_BASE_ADDRESS		0x101f1000
-#define UART0_FR				0x18
+#define UART0_FR		0x18
 
-
+#ifdef CONFIG_EARLY_KPRINTF
 
 static void uart_putc(unsigned char byte) {
-	/* not required qemu
-	while(true) {
-		if (!(memr(UART0_BASE_ADDRESS + UART0_FR) & (1 << 5))) {
-			break;
-		}
+    /* not required qemu
+    while(true) {
+	if (!(memr(UART0_BASE_ADDRESS + UART0_FR) & (1 << 5))) {
+	    break;
 	}
-	*/
-	memw(UART0_BASE_ADDRESS, (unsigned int)byte);
+    }
+    */
+    
+    memw(UART0_BASE_ADDRESS, (unsigned int)byte);
 }
 
 static void uart_puts(char *buf) {
-	int i = 0;
+    int i = 0;
 	
-	//dsb(); not required atm, qemu
+    //dsb(); not required atm, qemu
 	
-	while (buf[i] != '\0') {
-		uart_putc(buf[i++]);
-	}
+    while (buf[i] != '\0') {
+	uart_putc(buf[i++]);
+    }
 }
 
-void mach_init_printf(const char *format, ...) {
-	char buf[11];
-	unsigned int index = 0;
-	va_list va;
+void mach_early_kprintf(const char *format, ...) {
+    char buf[11];
+    unsigned int index = 0;
+    va_list va;
 	
-	if (format != NULL) {
-		va_start(va, format);
+    if (format != NULL) {
+	va_start(va, format);
 		
-		while (format[index] != '\0') {
-			switch(format[index]) {
-				case '%' :
-					index++;
+	while (format[index] != '\0') {
+	    switch(format[index]) {
+		case '%' :
+		    index++;
 				
-					if (format[index] == 'x') {
-						memset(buf, 0, sizeof(buf));
-						uart_puts(itox(va_arg(va, int), buf));
-					} else if (format[index] == 'i') {
-						memset(buf, 0, sizeof(buf));
-						uart_puts(itoa(va_arg(va, int), buf));
-					} else if (format[index] == 's') {
-						uart_puts(va_arg(va, char*));
-					} else if (format[index] == 'c') {
-						uart_putc(va_arg(va, int));
-					}
-					break;
-				default:
-					uart_putc(format[index]);
-					break;
-			}
+		    if (format[index] == 'x') {
+			memset(buf, 0, sizeof(buf));
+			uart_puts(itox(va_arg(va, int), buf));
+		    } else if (format[index] == 'i') {
+			memset(buf, 0, sizeof(buf));
+			uart_puts(itoa(va_arg(va, int), buf));
+		    } else if (format[index] == 's') {
+			uart_puts(va_arg(va, char*));
+		    } else if (format[index] == 'c') {
+			uart_putc(va_arg(va, int));
+		    }
+		    
+		    break;
+		default:
+		    uart_putc(format[index]);
+		    break;
+	    }
 			
-			index++;
-		}
-		
-		va_end(va);
+	    index++;
 	}
+		
+	va_end(va);
+    }
 }
+
+#endif

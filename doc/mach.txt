@@ -1,0 +1,5 @@
+mach functionality that may or may not be necessary:
+
+mach/mach.h
+CONFIG_EARLY_KPRINTF
+    extern void mach_early_kprintf(const char *fmt, ...);

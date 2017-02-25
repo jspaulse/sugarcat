@@ -1,5 +1,5 @@
-#ifndef LIBSTR_H_INCLUDED
-#define LIBSTR_H_INCLUDED
+#ifndef STR_H
+#define STR_H
 #include <stddef.h>
 
 size_t strlen(const char *);

@@ -1,0 +1,10 @@
+CONFIF_EARLY_KPRINTF
+    Provide early kernel printf functionality.  This requires mach functions be provided.
+    requires: NONE
+    
+CONFIG_INIT_DEBUG
+    Provides debug capabilities.
+    requires: CONFIG_EARLY_KPRINTF
+    
+
+    

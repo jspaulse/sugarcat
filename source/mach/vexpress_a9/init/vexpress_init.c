@@ -23,8 +23,12 @@
 #include <arch/arm/cpu/cortex_a9.h>
 #include <arch/arm/armv7/armv7_mmu.h>
 #include <arch/arm/armv7/armv7_syscntl.h>
-#include <mach/vexpress_a9/vexpress_a9.h>
-#include <mach/mach_init.h>		/* TODO: temp? */
+
+/* TODO: fix me */
+#ifdef CONFIG_EARLY_KPRINTF
+#include <mach/mach.h>
+#endif
+
 #include <arch/arch_mmu.h>
 #include <init/kinit.h>
 #include <util/atag.h>
@@ -32,7 +36,7 @@
 #include <util/bits.h>
 #include <mm/mem.h>
 #include <mm/mm.h>
-#include <linker.h>
+#include <memlayout.h>
 #include <types.h>
 #include <errno.h>
 #include <stdbool.h>
@@ -78,8 +82,11 @@ static struct init_mmu_entry kdef_ent = {
 extern void install_ivt();
 /* helper functions */
 static void move_high_sp(void);
-static int init_get_mem(addr_t atag_base, struct mm_reg *reg);
-static int init_get_initrd(addr_t atag_base, struct mm_reg *reg);
+static int init_get_mem(addr_t atag_fdt_base, struct mm_reg *reg);
+static int init_get_mem_atag(addr_t atag_fdt_base, struct mm_reg *mem_reg);
+static int init_get_mem_fdt(addr_t atag_fdt_base, struct mm_reg *mem_reg);
+static int init_get_initrd(addr_t atag_fdt_base, struct mm_reg *mem_reg);
+static int init_get_initrd_atag(addr_t atag_base, struct mm_reg *mem_reg);
 static int init_setup_kern_pgtb(struct mm_reg *kern_pgd, struct mm_reg *kern_pgtb, struct init_mmu_entry *ent);
 static int init_map_kern_pgtb(struct mm_reg *kern_pgtb, struct mm_reg *map_reg, struct init_mmu_entry *ent);
  
@@ -95,105 +102,78 @@ static int init_map_kern_pgtb(struct mm_reg *kern_pgtb, struct mm_reg *map_reg, 
  * branches into the main kernel initialization
  **/
 void vexpress_init(unsigned int mach, addr_t atag_fdt_base) {
-    struct mm_reg	mmu_pgtb_reg	= {((init_kvm_to_phy((addr_t)&k_end) & ~MASK_MB) + MB), MMU_PGTB_SIZE};
+    struct mm_reg	mmu_pgtb_reg	= {((kvm_to_phy((addr_t)&k_end) & ~MASK_MB) + MB), MMU_PGTB_SIZE};
     struct mm_vreg	mmu_pgtb_vreg	= {mmu_pgtb_reg.base, (((addr_t)&k_end & ~MASK_MB) + MB), mmu_pgtb_reg.size};
     struct mm_reg	mmu_pgd_reg	= {(addr_t)&k_pgd, MMU_KPGD_SIZE};
-    struct mm_reg	kstack_reg	= {(init_kvm_to_phy((addr_t)&k_stack)) - PG_SZ, PG_SZ};
-    struct mm_reg	kinit_reg	= {init_kvm_to_phy((addr_t)&hmi_start), ((size_t)&hmi_end - (size_t)&hmi_start)};
-    struct mm_reg	kern_reg	= {init_kvm_to_phy((addr_t)&k_start), ((size_t)&k_end - (size_t)&k_start)};
+    struct mm_reg	kstack_reg	= {(kvm_to_phy((addr_t)&k_stack)) - PG_SZ, PG_SZ};
+    struct mm_reg	kinit_reg	= {kvm_to_phy((addr_t)&hmi_start), ((size_t)&hmi_end - (size_t)&hmi_start)};
+    struct mm_reg	kern_reg	= {kvm_to_phy((addr_t)&k_start), ((size_t)&k_end - (size_t)&k_start)};
     struct mm_reg	initrd_reg	= {0, 0};
     struct mm_reg	mem_reg 	= {0, 0};
-    //bool		initrd_ex	= false;
     int			err		= 0;
     
     /* debug */
     #ifdef CONFIG_INIT_DEBUG
-	mach_init_printf("========== VEXPRESS_A9_QEMU ==========\n");
-	mach_init_printf("kernel init reg: 0x%x - 0x%x, %i bytes\n",
-	    kinit_reg.base, kinit_reg.base + kinit_reg.size, kinit_reg.size);
-	mach_init_printf("kernel phys reg: 0x%x - 0x%x, %i bytes\n",
-	    kern_reg.base, kern_reg.base + kern_reg.size, kern_reg.size);
-	mach_init_printf("kernel stack: 0x%x, %i bytes\n", kstack_reg.base, kstack_reg.size);
-	mach_init_printf("mmu page dir reg: 0x%x - 0x%x, %i bytes\n",
-	    mmu_pgd_reg.base, mmu_pgd_reg.base + mmu_pgd_reg.size, mmu_pgd_reg.size);
-	mach_init_printf("mmu page table reg: 0x%x - 0x%x, %i bytes\n", mmu_pgtb_reg.base,
-	    mmu_pgtb_reg.base + mmu_pgtb_reg.size, mmu_pgtb_reg.size);
+	mach_early_kprintf("========================= VEXPRESS_A9_QEMU "
+	    "=========================\n");
+	mach_early_kprintf("kernel init reg:\t0x%x\t0x%x\t%i bytes\n",
+	    kinit_reg.base, kinit_reg.base + 
+	    kinit_reg.size, kinit_reg.size);
+	mach_early_kprintf("kernel phys reg:\t0x%x\t0x%x\t%i bytes\n",
+	    kern_reg.base, kern_reg.base + 
+	    kern_reg.size, kern_reg.size);
+	mach_early_kprintf("kernel stack:\t\t0x%x\t0x%x\t%i bytes\n", 
+	    kstack_reg.base, kstack_reg.base + 
+	    kstack_reg.size, kstack_reg.size);
+	mach_early_kprintf("mmu page dir reg:\t0x%x\t0x%x\t%i bytes\n",
+	    mmu_pgd_reg.base, mmu_pgd_reg.base + mmu_pgd_reg.size, 
+	    mmu_pgd_reg.size);
+	mach_early_kprintf("mmu page table reg:\t0x%x\t0x%x\t%i bytes\n", 
+	    mmu_pgtb_reg.base, mmu_pgtb_reg.base + mmu_pgtb_reg.size, 
+	    mmu_pgtb_reg.size);
+	    
+	if (is_using_fdt(atag_fdt_base)) {
+	    mach_early_kprintf("fdt base:\t\t0x%x\n", atag_fdt_base);
+	} else if (is_using_atag(atag_fdt_base)) {
+	    mach_early_kprintf("atag base:\t0x%x\n", atag_fdt_base);
+	}
     #endif
     
     /* TODO: tmp */
     install_ivt();
     
-    fdt_convert_endian(atag_fdt_base);
+    dump_fdt(atag_fdt_base);
     
-    /* we're not provided with anything for init; panic */
-    if (!is_using_fdt(atag_fdt_base) && !is_using_atag(atag_fdt_base)) {
-	kinit_panic(buf, "kernel was not provided fdt or atag; init. is impossible to do without either.\n", 0);
-    }
-    
-    /* debug */
-    #ifdef CONFIG_INIT_DEBUG
-	if (is_using_fdt(atag_fdt_base)) {
-	    mach_init_printf("using fdt, base 0x%x\n", atag_fdt_base);
-	} else if (is_using_atag(atag_fdt_base)) {
-	    mach_init_printf("using atag, base 0x%x\n", atag_fdt_base);
-	}
-    #endif
-    
-
     /* grab the largest continuous region of memory */
     if ((err = init_get_mem(atag_fdt_base, &mem_reg)) != ESUCC) {
-	kinit_panic(buf, "init_get_mem() returned %i, no defined memory regions available.", err);
-    } else if (mem_reg.size <= (kern_reg.size + kinit_reg.size + mmu_pgtb_reg.size)) {
-	kinit_panic(buf, "not enough memory in region!  init_get_mem() returned %i bytes \
-	    in largest found region, a minimum of %i bytes are required.", mem_reg.size, kinit_reg.size + kern_reg.size + mmu_pgtb_reg.size);
+	kinit_panic(buf, "init_get_mem() returned %i,"
+	    "no defined memory regions available.", err);
+    } else if (mem_reg.size <= 
+	(kern_reg.size + kinit_reg.size + mmu_pgtb_reg.size)) {
+	kinit_panic(buf, "not enough memory in region!  "
+	    "init_get_mem() returned %i bytes in largest found region, "
+	    "a minimum of %i bytes are required.", 
+	    mem_reg.size, kinit_reg.size + 
+	    kern_reg.size + mmu_pgtb_reg.size);
     }
 	
     /* check if initrd exists */
     if (tag_exists(atag_fdt_base, ATAG_INITRD2)) {
 	if ((err = init_get_initrd(atag_fdt_base, &initrd_reg)) != 0) {
-	    kinit_warn(buf, "tag_exists(ATAG_INITRD2) returned true but init_get_initrd() returned %i; \
-		assuming it doesn't exist.", err);
+	    kinit_warn(buf, "tag_exists(ATAG_INITRD2) returned true but init_get_initrd() returned %i; "
+		"assuming it doesn't exist.", err);
 	    //initrd_ex = false;
 	} else if (initrd_reg.size == 0) {
-	    kinit_warn(buf, "ATAG_INITRD2 exists but reports initrd.size == %i; \
-		assuming it doesn't exist.", initrd_reg.size);
+	    kinit_warn(buf, "ATAG_INITRD2 exists but reports initrd.size == %i;"
+		"assuming it doesn't exist.", initrd_reg.size);
 	    //initrd_ex = false;
 	} else {
 	    //initrd_ex = true;
 	}
     }
     
-    /*
-    sanity check on kernel region
-    if (!is_within_region(&mem_reg, &kern_reg)) {
-	kinit_warn(buf, "is_within_region() reports kernel region is not in largest found memory region; \
-	    k_base: 0x%x, k_size: %i, m_base: 0x%x, m_size: %i.", kern_reg.base, kern_reg.size, mem_reg.base, mem_reg.size);
-    } 
-    
-    sanity check on kinit region
-    if (!is_within_region(&mem_reg, &kinit_reg)) {
-	kinit_warn(buf, "is_within_region() reports kernel init region is not in largest found memory region; \
-	    kinit_base: 0x%x, kinit_size: %i, m_base: 0x%x, m_size %i.", kinit_reg.base, kinit_reg.size, mem_reg.base, mem_reg.size);
-    }
-	
-    check if mmu pte is in sane region
-    if (!is_within_region(&mem_reg, &mmu_pgtb_reg.phy)) {
-	kinit_warn(buf, "is_within_region() reports mmu_pgtb region is not in largest found memory region; \
-	    pgtb_base: 0x%x, pgtb_size: %i, m_base: 0x%x, m_size: %i.", mmu_pgtb_reg.phy.base, mmu_pgtb_reg.phy.size, mem_reg.base, mem_reg.size);
-    }
-	
-    check if overlapping with initrd
-    if (initrd_ex && is_overlapping(&initrd_reg, &mmu_pgtb_reg.phy)) {
-	kinit_warn(buf, "is_overlapping() reports mmu_pgtb is overlapping the initrd; pgtb_base: 0x%x, pgtb_size: %i, \
-	    initrd_base: 0x%x, initrd_size: %i.", mmu_pgtb_reg.phy.base, mmu_pgtb_reg.phy.size, initrd_reg.base, initrd_reg.size);
-    }
-    */
-    
     /* clean (invalidate) pgtb region */
     memset((void *)mmu_pgtb_reg.base, 0, mmu_pgtb_reg.size);
-    
-    /* tmp */
-    install_ivt();
     
     /* map kernel init */
     if ((err = init_map_kern_pgtb(&mmu_pgtb_reg, &kinit_reg, &kdef_ent)) != ESUCC) {
@@ -244,6 +224,27 @@ void vexpress_init(unsigned int mach, addr_t atag_fdt_base) {
     /* move sp into kernel memory */
     move_high_sp();
     
+    struct fdt_node *test = fdt_get_node("chosen", atag_fdt_base);
+    
+    if (test != NULL) {
+	struct fdt_property *initrd_end 	= fdt_get_property(atag_fdt_base, test, "linux,initrd-end");
+	struct fdt_property *initrd_start 	= fdt_get_property(atag_fdt_base, test, "linux,initrd-start");
+	
+	if (initrd_end != NULL) {
+	    if (initrd_start != NULL) {
+		fdt32_t	*ptr = (fdt32_t *)initrd_end->data;
+		    mach_early_kprintf("initrd_end: 0x%x\n", be32_to_cpu(*ptr));
+		    
+		    ptr = (fdt32_t *)initrd_start->data;
+		    mach_early_kprintf("initrd_start: 0x%x\n", be32_to_cpu(*ptr));
+		
+		mach_early_kprintf("all bueno!\n");
+	    }
+	}
+    } else {
+	mach_early_kprintf("fdt_node null\n");
+    }
+
     /* branch into kernel init */
     kernel_init(mach, atag_fdt_base, &mmu_pgtb_vreg, NULL, 0);
 }
@@ -251,20 +252,94 @@ void vexpress_init(unsigned int mach, addr_t atag_fdt_base) {
 /**
  * init_get_mem
  * 
+ * returns the first known region of memory (typically where
+ * the kernel resides)
+ * 
+ * @atag_fdt_base	atag or fdt base
+ * @mem_reg		return output
+ * @return errno
+ **/
+static int init_get_mem(addr_t atag_fdt_base, struct mm_reg *mem_reg) {
+    int ret = ESUCC;
+    
+    if (mem_reg != NULL) {
+	if (is_using_fdt(atag_fdt_base)) {
+	    ret = init_get_mem_fdt(atag_fdt_base, mem_reg);
+	} else if (is_using_atag(atag_fdt_base)) {
+	    ret = init_get_mem_atag(atag_fdt_base, mem_reg);
+	} else {
+	    ret = ENOTFND;
+	}
+    } else {
+	ret = EINVAL;
+    }
+    
+    return ret;
+}
+
+/**
+ * init_get_mem_fdt
+ * 
+ * returns the first known region of memory (typically where the
+ * kernel resides)
+ * 
+ * @atag_fdt_base	fdt base
+ * @mem_reg		return output
+ * @return errno
+ **/
+static int init_get_mem_fdt(addr_t atag_fdt_base, struct mm_reg *mem_reg) {
+    struct fdt_node 	*node	= NULL;
+    struct fdt_property *prop	= NULL;
+    fdt32_t		*ptr	= NULL;
+    int			ret	= ESUCC;
+    
+    /* memory@phy_base */
+    sprintf(buf, "memory@0x%x\n", (addr_t)&kv_start);
+    
+    /* search for memory@phy_base */
+    if ((node = fdt_get_node(buf, atag_fdt_base)) == NULL) {
+	node = fdt_get_node("memory", atag_fdt_base);
+	
+	/* TODO: any additional range searches */
+    }
+    
+    /* if we found our memory
+     * node, get reg.
+     */
+    if (node != NULL) {
+	if ((prop = fdt_get_property(atag_fdt_base, node, "reg")) != NULL) {
+	    ptr = (fdt32_t *)prop->data;
+	    
+	    /* assign values */
+	    mem_reg->base = be32_to_cpu(*ptr);
+	    mem_reg->size = be32_to_cpu(*(ptr + 1));
+	} else {
+	    ret = ENOTFND;
+	}
+    } else {
+	ret = ENOTFND;
+    }
+    
+    return ret;
+}
+
+/**
+ * init_get_mem_atag
+ * 
  * returns the largest region of memory listed in the atags
  * 
  * this will attempt to coalesce any adjacent memory regions
  * 
- * @atag_base	atag base address
- * @reg		struct to output into
+ * @atag_fdt_base	atag base address
+ * @mem_reg		struct to output into
  * @return errno
  **/
-static int init_get_mem(addr_t atag_fdt_base, struct mm_reg *reg) {
+static int init_get_mem_atag(addr_t atag_fdt_base, struct mm_reg *mem_reg) {
     struct atag		*sch	= NULL;
     struct mm_reg	fnd 	= {0, 0};
     int 		ret 	= ESUCC;
 
-    if (reg != NULL) {
+    if (mem_reg != NULL) {
 	sch = get_tag(atag_fdt_base, ATAG_MEM);
 		
 	if (sch != NULL) {
@@ -280,7 +355,7 @@ static int init_get_mem(addr_t atag_fdt_base, struct mm_reg *reg) {
 		}
 	    }
 			
-	    memcpy(reg, &fnd, sizeof(struct mm_reg));
+	    memcpy(mem_reg, &fnd, sizeof(struct mm_reg));
 		
 	} else {
 	    ret = ENOTFND;
@@ -292,6 +367,11 @@ static int init_get_mem(addr_t atag_fdt_base, struct mm_reg *reg) {
     return ret;
 }
 
+/* TODO: finish */
+static int init_get_initrd(addr_t atag_fdt_base, struct mm_reg *mem_reg) {
+    return init_get_initrd_atag(atag_fdt_base, mem_reg);
+}
+    
 /**
  * init_get_initrd
  * 
@@ -301,16 +381,16 @@ static int init_get_mem(addr_t atag_fdt_base, struct mm_reg *reg) {
  * @reg		struct to output to
  * @return errno
  **/
-static int init_get_initrd(addr_t atag_base, struct mm_reg *reg) {
+static int init_get_initrd_atag(addr_t atag_base, struct mm_reg *mem_reg) {
     struct atag *sch	= NULL;
     int 	ret 	= 0;
-	
-    if (reg != NULL) {
+    
+    if (mem_reg != NULL) {
 	sch = get_tag(atag_base, ATAG_INITRD2);
 		
 	if (sch != NULL) {
-	    reg->base = sch->u.initrd.start;
-	    reg->size = sch->u.initrd.sz;
+	    mem_reg->base = sch->u.initrd.start;
+	    mem_reg->size = sch->u.initrd.sz;
 	} else {
 	    ret = ENOTFND;
 	}
@@ -320,29 +400,6 @@ static int init_get_initrd(addr_t atag_base, struct mm_reg *reg) {
 	
     return ret;
 }
-
-/*
-static int init_get_initrd(addr_t atag_fdt_base, struct mm_reg *reg) {
-    int	ret	= ESUCC;
-    
-    if (reg != NULL) {
-	if (is_using_fdt(atag_fdt_base)) {
-	    
-    } else {
-	ret = EINVAL;
-    }
-    
-    return ret;
-}
-
-static int init_get_fdt_initrd(addr_t fdt_base, struct mm_reg *reg) {
-    return 0;
-}
-
-static int init_get_atag_initrd(addr_t fdt_base, struct mm_reg *reg) {
-    return 0;
-}
-*/
 
 /**
  * init_setup_kern_pgtb
@@ -417,7 +474,7 @@ static int init_map_kern_pgtb(struct mm_reg *kern_pgtb, struct mm_reg *map_reg, 
     
     if (kern_pgtb != NULL && map_reg != NULL && ent != NULL) {
 	pg_tb 		= kern_pgtb->base;
-	virt_addr	= init_phy_to_kvm(map_reg->base);
+	virt_addr	= phy_to_kvm(map_reg->base);
 	phy_addr	= map_reg->base;
 	
 	/* determines index */
@@ -467,7 +524,7 @@ static void move_high_sp(void) {
     asm volatile("mov %0, sp" : "=r" (sp));
 	
     /* get high virt. address */
-    sp = init_phy_to_kvm(sp);
+    sp = phy_to_kvm(sp);
 
     /* now, assign it back */
     asm volatile ("mov sp, %0" : : "r" (sp));
